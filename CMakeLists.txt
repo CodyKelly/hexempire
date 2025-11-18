@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.1)
+cmake_minimum_required(VERSION 4.0.2)
 project(atlas)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -14,7 +14,8 @@ set(SDLSHADERCROSS_VENDORED ON)
 add_subdirectory(vendored/SDL EXCLUDE_FROM_ALL)
 add_subdirectory(vendored/SDL_shadercross EXCLUDE_FROM_ALL)
 
-add_executable(atlas main.cpp)
+add_executable(atlas main.cpp
+        main.cpp)
 
 # Link to the actual SDL3 library.
 target_link_libraries(atlas
