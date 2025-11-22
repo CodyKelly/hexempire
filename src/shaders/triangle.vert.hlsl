@@ -20,16 +20,20 @@ cbuffer UniformBlock : register(b0, space1)
     float4x4 ViewProjectionMatrix : packoffset(c0);
 };
 
-static const float2 vertexPos[3] = {
-    { 0.0f, 0.0f },
-    { 1.0f, 0.0f },
-    { 0.0f, 1.0f }
+static const float2 vertexPos[6] = {
+    { 0.0f, 0.0f },  // Top-left
+    { 1.0f, 0.0f },  // Top-right
+    { 0.0f, 1.0f },  // Bottom-left
+
+    { 1.0f, 0.0f },  // Top-right
+    { 1.0f, 1.0f },  // Bottom-right
+    { 0.0f, 1.0f }   // Bottom-left
 };
 
 Output main(uint id: SV_VertexID)
 {
-    uint shapeIndex = id / 3;
-    uint vert = id % 3;
+    uint shapeIndex = id / 6;
+    uint vert = id % 6;
     ShapeData shape = DataBuffer[shapeIndex];
 
     float c = cos(shape.Rotation);
@@ -45,7 +49,6 @@ Output main(uint id: SV_VertexID)
     Output output;
 
     output.Position = mul(ViewProjectionMatrix, float4(coordWithDepth, 1.0f));
-    output.Color = float4(vert == 0 ? 1.0f : 0.0f, vert == 1 ? 1.0f : 0.0f, vert == 2 ? 1.0f : 0.0f, 1.0f); // shape.Color;
-
+    output.Color = shape.Color;
     return output;
 }

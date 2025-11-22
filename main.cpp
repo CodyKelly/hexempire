@@ -26,7 +26,7 @@ struct TimeInfo
   double fps;
 };
 
-constexpr uint32_t SPRITE_COUNT = 500000;
+constexpr uint32_t SPRITE_COUNT = 10000;
 
 Matrix4x4 cameraMatrix = Matrix4x4_CreateOrthographicOffCenter(
   0,
@@ -66,7 +66,7 @@ TimeInfo updateTime()
     fps = frameCount / timeSinceUpdate;
 
     char title[256];
-    SDL_snprintf(title, sizeof(title), "TRIANGLES - FPS: %.1f", fps);
+    SDL_snprintf(title, sizeof(title), "QUADS - FPS: %.1f", fps);
     SDL_SetWindowTitle(resourceManager.GetWindow(), title);
 
     frameCount = 0;
@@ -78,13 +78,13 @@ TimeInfo updateTime()
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 {
-  resourceManager.Init("TRIANGLES", 1000, 1000, SDL_WINDOW_RESIZABLE);
+  resourceManager.Init("QUADS", 1000, 1000, SDL_WINDOW_RESIZABLE);
 
   resourceManager.CreateGraphicsPipeline("sprites",
                                          {"./shaders/triangle.vert.hlsl", 0, 1, 1, 0},
                                          {"./shaders/triangle.frag.hlsl", 0, 0, 0, 0}
   );
-  spriteBatch = new SpriteBatch(&resourceManager, 500000);
+  spriteBatch = new SpriteBatch(&resourceManager, 1000000);
 
   for (int i = 0; i < SPRITE_COUNT; i++)
   {
@@ -114,7 +114,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
   for (size_t i = 0; i < spriteCount; i++)
   {
-    float spiralSpeed = 0.5f;
+    float spiralSpeed = 0.25f;
     float spiralTightness = 500.0f / SPRITE_COUNT;
     float baseAngle = i * 0.05f;
 
@@ -125,7 +125,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     sprites[i].y = centerY + SDL_sinf(angle) * radius;
     sprites[i].rotation = angle;
 
-    float t = (float)i / spriteCount;
+    float t = (float)i / spriteCount * SDL_sinf(totalTime / 6.0f);
     sprites[i].r = 0.5f + 0.5f * SDL_sinf(t * 6.28f);
     sprites[i].g = 0.5f + 0.5f * SDL_sinf(t * 6.28f + 2.09f);
     sprites[i].b = 0.5f + 0.5f * SDL_sinf(t * 6.28f + 4.18f);
@@ -197,4 +197,5 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
+  delete spriteBatch;
 }
