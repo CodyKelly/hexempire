@@ -8,22 +8,21 @@
 
 #include "src/ResourceManager.h"
 
-const uint32_t SPRITE_COUNT = 10000;
+ResourceManager resourceManager;
 
-SDL_GPUGraphicsPipeline *pipeline;
-SDL_GPUCommandBuffer *commandBuffer;
-SDL_GPUTexture *swapchainTexture;
-SDL_GPUDevice *gpuDevice;
-SDL_Window *window;
-GPUBufferPair *spriteBuffers;
+SDL_GPUGraphicsPipeline* pipeline;
+SDL_GPUCommandBuffer* commandBuffer;
+SDL_GPUTexture* swapchainTexture;
 
-struct GameTime {
+struct GameTime
+{
   double deltaTime;
   double accumulatedTime;
   double fps;
 };
 
-GameTime updateTime() {
+GameTime updateTime()
+{
   // Get current time
   static Uint64 currentTime;
   static Uint64 frequency;
@@ -37,7 +36,8 @@ GameTime updateTime() {
   frequency = SDL_GetPerformanceFrequency();
 
   // Initialize lastFPSUpdate on first frame
-  if (lastFPSUpdate == 0) {
+  if (lastFPSUpdate == 0)
+  {
     lastFPSUpdate = currentTime;
   }
 
@@ -47,7 +47,8 @@ GameTime updateTime() {
   frameCount++;
 
   // Update FPS every second
-  if (accumulatedTime >= 1.0) {
+  if (accumulatedTime >= 1.0)
+  {
     fps = frameCount / accumulatedTime;
 
     // Update window title
@@ -65,196 +66,46 @@ GameTime updateTime() {
   return {deltaTime, accumulatedTime, fps};
 }
 
-SDL_GPUShader *LoadShader(
-  SDL_GPUDevice *device,
-  const char *shaderFilename,
-  const char *basePath,
-  Uint32 samplerCount,
-  Uint32 uniformBufferCount,
-  Uint32 storageBufferCount,
-  Uint32 storageTextureCount) {
-  if (!device) {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "LoadShader: Device error");
-    return nullptr;
-  }
-  if (!shaderFilename) {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "LoadShader: Shader filename error");
-    return nullptr;
-  }
-  if (!basePath) {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "LoadShader: Base path error");
-    return nullptr;
-  }
+SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
+{
+  resourceManager.Init("Game", 800, 600, true ? SDL_WINDOW_RESIZABLE : 0);
 
-  // Auto-detect the shader stage from the file name for convenience
-  SDL_GPUShaderStage stage;
-  SDL_ShaderCross_ShaderStage crossStage;
-  if (SDL_strstr(shaderFilename, ".vert")) {
-    stage = SDL_GPU_SHADERSTAGE_VERTEX;
-    crossStage = SDL_SHADERCROSS_SHADERSTAGE_VERTEX;
-  } else if (SDL_strstr(shaderFilename, ".frag")) {
-    stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
-    crossStage = SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT;
-  } else {
-    SDL_Log("Invalid shader stage!");
-    return nullptr;
-  }
-
-  // Build full path with bounds checking
-  char fullPath[1024];
-  int result = SDL_snprintf(fullPath, sizeof(fullPath), "%s/%s", basePath, shaderFilename);
-  if (result < 0 || result >= sizeof(fullPath)) {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "LoadShader: Path too long for shader '%s'", shaderFilename);
-    return nullptr;
-  }
-
-  // Load shader source with size validation
-  size_t hlslSourceSize;
-  void *hlslSource = SDL_LoadFile(fullPath, &hlslSourceSize);
-  if (!hlslSource) {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "LoadShader: Failed to load shader from '%s' - %s", fullPath, SDL_GetError());
-    return nullptr;
-  }
-
-  SDL_GPUShaderFormat backendFormats = SDL_GetGPUShaderFormats(device);
-  SDL_GPUShaderFormat format = SDL_GPU_SHADERFORMAT_INVALID;
-  const char *entrypoint;
-
-  if (backendFormats & SDL_GPU_SHADERFORMAT_SPIRV) {
-    format = SDL_GPU_SHADERFORMAT_SPIRV;
-    entrypoint = "main";
-  } else if (backendFormats & SDL_GPU_SHADERFORMAT_MSL) {
-    format = SDL_GPU_SHADERFORMAT_MSL;
-    entrypoint = "main0";
-  } else {
-    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "No supported shader format available");
-    SDL_free(hlslSource);
-    return nullptr;
-  }
-
-  SDL_ShaderCross_HLSL_Info hlslInfo = {
-    .source = static_cast<const char *>(hlslSource),
-    .entrypoint = "main",
-    .include_dir = nullptr,
-    .defines = nullptr,
-    .shader_stage = crossStage,
-  };
-
-  size_t codeSize;
-  void *code = SDL_ShaderCross_CompileSPIRVFromHLSL(&hlslInfo, &codeSize);
-
-
-  if (format == SDL_GPU_SHADERFORMAT_MSL) {
-    const auto spirvInfo = SDL_ShaderCross_SPIRV_Info{
-      static_cast<const unsigned char *>(code),
-      codeSize,
-      "main",
-      crossStage,
-    };
-    const auto mslCode = SDL_ShaderCross_TranspileMSLFromSPIRV(&spirvInfo);
-    SDL_free(code);
-    code = mslCode;
-    codeSize = SDL_strlen(static_cast<const char *>(code));
-  }
-
-  if (!code) {
-    SDL_Log("Failed to compile HLSL: %s", SDL_GetError());
-    SDL_free(hlslSource);
-    return nullptr;
-  }
-
-  SDL_free(hlslSource);
-
-  SDL_GPUShaderCreateInfo shaderInfo;
-  shaderInfo.stage = stage;
-  shaderInfo.format = format;
-  shaderInfo.code = (const Uint8 *) code;
-  shaderInfo.code_size = codeSize;
-  shaderInfo.entrypoint = entrypoint;
-  shaderInfo.num_samplers = samplerCount;
-  shaderInfo.num_uniform_buffers = uniformBufferCount;
-  shaderInfo.num_storage_buffers = storageBufferCount;
-  shaderInfo.num_storage_textures = storageTextureCount;
-  SDL_GPUShader *shader = SDL_CreateGPUShader(device, &shaderInfo);
-  if (shader == nullptr) {
-    SDL_Log("Failed to create shader!");
-    SDL_free(code);
-    return nullptr;
-  }
-
-  SDL_free(code);
-
-  SDL_Log("Successfully created GPU shader for %s", shaderFilename);
-  return shader;
-}
-
-struct SpriteInstance {
-  float x, y, z, rotation;
-  float scale, padding1, padding2, padding3;
-  float r, g, b, a;
-};
-
-SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
-  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-  SDL_ShaderCross_Init();
-
-  gpuDevice = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL, true, NULL);
-  if (!gpuDevice) {
-    LogError("SDL_CreateGPUDevice failed");
-    return SDL_APP_FAILURE;
-  }
-
-  window = SDL_CreateWindow("title", 800, 600, true ? SDL_WINDOW_RESIZABLE : 0);
-  if (!window) {
-    LogError("SDL_CreateWindow failed");
-    return SDL_APP_FAILURE;
-  }
-
-  if (!SDL_ClaimWindowForGPUDevice(gpuDevice, window)) {
-    LogError("SDL_ClaimWindowForGPUDevice failed");
-    return SDL_APP_FAILURE;
-  }
-
-  SDL_GPUShader *vertShader = LoadShader(gpuDevice, "triangle.vert.hlsl", "./shaders", 0, 1, 1, 0);
-  SDL_GPUShader *fragShader = LoadShader(gpuDevice, "triangle.frag.hlsl", "./shaders", 0, 0, 0, 0);
-
-  SDL_GPUGraphicsPipelineCreateInfo pipelineCreateInfo = {
-    .vertex_shader = vertShader,
-    .fragment_shader = fragShader,
-    .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
-    .target_info = {
-      .color_target_descriptions = (SDL_GPUColorTargetDescription[]){
-        {.format = SDL_GetGPUSwapchainTextureFormat(gpuDevice, window)}
-      },
-      .num_color_targets = 1,
+  resourceManager.CreateGraphicsPipeline(
+    "sprites",
+    {
+      "./shaders/triangle.vert.hlsl",
+      0, 1, 1, 0
+    }, {
+      "./shaders/triangle.frag.hlsl",
+      0, 0, 0, 0
     }
-  };
-  pipeline = SDL_CreateGPUGraphicsPipeline(gpuDevice, &pipelineCreateInfo);
-
-  SDL_ReleaseGPUShader(gpuDevice, vertShader);
-  SDL_ReleaseGPUShader(gpuDevice, fragShader);
+  );
 
   spriteBuffers = new GPUBufferPair(sizeof(SpriteInstance) * SPRITE_COUNT, gpuDevice);
 
   return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SDL_AppIterate(void *appstate) {
+SDL_AppResult SDL_AppIterate(void* appstate)
+{
   auto [deltaTime, accumulatedTime, fps] = updateTime();
 
   commandBuffer = SDL_AcquireGPUCommandBuffer(gpuDevice);
-  if (!commandBuffer) {
+  if (!commandBuffer)
+  {
     LogError("SDL_AcquireGPUCommandBuffer failed");
     return SDL_APP_FAILURE;
   }
 
-  if (!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer, window, &swapchainTexture, nullptr, nullptr)) {
+  if (!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer, window, &swapchainTexture, nullptr, nullptr))
+  {
     LogError("SDL_WaitAndAcquireGPUSwapchainTexture failed");
     return SDL_APP_FAILURE;
   }
 
-  if (swapchainTexture) {
-    SpriteInstance *dataPtr = (SpriteInstance *) SDL_MapGPUTransferBuffer(
+  if (swapchainTexture)
+  {
+    SpriteInstance* dataPtr = (SpriteInstance*)SDL_MapGPUTransferBuffer(
       gpuDevice,
       spriteBuffers->_transferBuffer,
       true);
@@ -266,7 +117,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     float gridWidth = gridSpacing;
     float gridHeight = gridSpacing;
 
-    for (int i = 0; i < SPRITE_COUNT; i++) {
+    for (int i = 0; i < SPRITE_COUNT; i++)
+    {
       int row = i * gridHeight;
       int col = i * gridWidth;
       float angle = accumulatedTime * i * 100.0f;
@@ -282,7 +134,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
       dataPtr[i].b = 1.0f;
       dataPtr[i].a = 1.0f;
 
-      if (row == 0 || col == 0 || row == 1 || col == 1) {
+      if (row == 0 || col == 0 || row == 1 || col == 1)
+      {
         dataPtr[i].g = 0.0f;
         dataPtr[i].b = 0.0f;
       }
@@ -291,7 +144,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     SDL_UnmapGPUTransferBuffer(gpuDevice, spriteBuffers->_transferBuffer);
 
     // Upload shape data
-    SDL_GPUCopyPass *copyPass = SDL_BeginGPUCopyPass(commandBuffer);
+    SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(commandBuffer);
     SDL_GPUTransferBufferLocation shapeTransferBufferLocation = {
       .transfer_buffer = spriteBuffers->_transferBuffer,
       .offset = 0,
@@ -314,7 +167,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
       .load_op = SDL_GPU_LOADOP_CLEAR,
       .store_op = SDL_GPU_STOREOP_STORE
     };
-    SDL_GPURenderPass *renderPass = SDL_BeginGPURenderPass(
+    SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
       commandBuffer,
       &colorTargetInfo,
       1,
@@ -345,33 +198,37 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
-  switch (event->type) {
-    case SDL_EVENT_QUIT:
-      return SDL_APP_SUCCESS;
+SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
+{
+  switch (event->type)
+  {
+  case SDL_EVENT_QUIT:
+    return SDL_APP_SUCCESS;
+    break;
+
+  case SDL_EVENT_KEY_DOWN:
+    switch (event->key.scancode)
+    {
+    case SDL_SCANCODE_LEFT:
       break;
 
-    case SDL_EVENT_KEY_DOWN:
-      switch (event->key.scancode) {
-        case SDL_SCANCODE_LEFT:
-          break;
-
-        case SDL_SCANCODE_RIGHT:
-          break;
-
-        default:
-          break;
-      }
+    case SDL_SCANCODE_RIGHT:
       break;
 
     default:
       break;
+    }
+    break;
+
+  default:
+    break;
   }
 
   return SDL_APP_CONTINUE;
 }
 
-void SDL_AppQuit(void *appstate, SDL_AppResult result) {
+void SDL_AppQuit(void* appstate, SDL_AppResult result)
+{
   spriteBuffers->ReleaseBuffers();
   SDL_ReleaseGPUGraphicsPipeline(gpuDevice, pipeline);
   SDL_ReleaseWindowFromGPUDevice(gpuDevice, window);
