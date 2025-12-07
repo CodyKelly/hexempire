@@ -74,6 +74,15 @@ ResourceManager::~ResourceManager()
     {
         SDL_ReleaseGPUGraphicsPipeline(gpuDevice, pipeline);
     }
+    for (const auto sampler : samplers | std::views::values)
+    {
+        SDL_ReleaseGPUSampler(gpuDevice, sampler);
+    }
+    for (const auto texture : textures | std::views::values)
+    {
+        SDL_ReleaseGPUTexture(gpuDevice, texture);
+    }
+    SDL_ShaderCross_Quit();
     SDL_ReleaseWindowFromGPUDevice(gpuDevice, window);
     SDL_DestroyGPUDevice(gpuDevice);
     SDL_DestroyWindow(window);
@@ -81,15 +90,28 @@ ResourceManager::~ResourceManager()
 
 SDL_GPUBuffer* ResourceManager::CreateBuffer(const string& name, const SDL_GPUBufferCreateInfo* createInfo)
 {
-    if (buffers[name])
+    if (buffers.contains(name))
     {
-        throw std::runtime_error("Resource already exists");
+        throw std::runtime_error("CreateBuffer: Buffer already exists");
     }
 
     buffers[name] = SDL_CreateGPUBuffer(gpuDevice, createInfo);
 
     return buffers[name];
 }
+
+SDL_GPUSampler* ResourceManager::CreateSampler(const string& name, const SDL_GPUSamplerCreateInfo* samplerInfo)
+{
+    if (samplers[name])
+    {
+        throw std::runtime_error("CreateSampler: Sampler already exists");
+    }
+
+    samplers[name] = SDL_CreateGPUSampler(gpuDevice, samplerInfo);
+
+    return samplers[name];
+}
+
 
 SDL_GPUGraphicsPipeline* ResourceManager::CreateGraphicsPipeline(
     const string& name,
@@ -240,4 +262,66 @@ SDL_GPUShader* ResourceManager::LoadShader(const ShaderInfo& info) const
 
     SDL_Log("Successfully created GPU shader for %s", info.shaderPath);
     return shader;
+}
+
+SDL_Surface* ResourceManager::LoadPNG(const char* path, int desiredChannels)
+{
+    SDL_PixelFormat format;
+    SDL_Surface* result = SDL_LoadPNG(path);
+
+    if (result == nullptr)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to load PNG: %s", SDL_GetError());
+        return nullptr;
+    }
+
+    if (desiredChannels == 4) format = SDL_PIXELFORMAT_ARGB8888;
+    else
+    {
+        SDL_assert(!"Unexpected desiredChannels");
+        SDL_DestroySurface(result);
+        return nullptr;
+    }
+    if (result->format != format)
+    {
+        SDL_Surface* next = SDL_ConvertSurface(result, format);
+        SDL_DestroySurface(result);
+        result = next;
+    }
+
+    return result;
+}
+
+SDL_GPUTexture* ResourceManager::CreateTexture(
+    const string& name,
+    const SDL_Surface* surface)
+{
+    auto textureInfo = SDL_GPUTextureCreateInfo{
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .width = static_cast<Uint16>(surface->w),
+        .height = static_cast<Uint16>(surface->h),
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+    };
+
+    auto texture = SDL_CreateGPUTexture(gpuDevice, &textureInfo);
+    if (texture == nullptr)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to create texture: %s", SDL_GetError());
+        return nullptr;
+    }
+
+    textures[name] = texture;
+    return texture;
+}
+
+SDL_GPUGraphicsPipeline* ResourceManager::GetGraphicsPipeline(const string& name)
+{
+    if (!pipelines.contains(name))
+    {
+        return nullptr;
+    }
+    return pipelines[name];
 }

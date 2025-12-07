@@ -84,22 +84,22 @@ void SpriteBatch::Upload(SDL_GPUCommandBuffer* commandBuffer)
 {
     if (!isDirty || sprites.empty()) return;
 
-    SpriteInstance* dataPtr = (SpriteInstance*)SDL_MapGPUTransferBuffer(
+    auto* dataPtr = static_cast<SpriteInstance*>(SDL_MapGPUTransferBuffer(
         resourceManager->GetGPUDevice(),
         transferBuffer,
         false
-    );
+    ));
 
     memcpy(dataPtr, sprites.data(), sizeof(SpriteInstance) * sprites.size());
 
     SDL_UnmapGPUTransferBuffer(resourceManager->GetGPUDevice(), transferBuffer);
 
     SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(commandBuffer);
-    SDL_GPUTransferBufferLocation transferLoc = {
+    const SDL_GPUTransferBufferLocation transferLoc = {
         .transfer_buffer = transferBuffer,
         .offset = 0
     };
-    SDL_GPUBufferRegion bufferRegion = {
+    const SDL_GPUBufferRegion bufferRegion = {
         .buffer = spriteBuffer,
         .offset = 0,
         .size = static_cast<Uint32>(sizeof(SpriteInstance) * sprites.size())

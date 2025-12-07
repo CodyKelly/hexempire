@@ -20,10 +20,12 @@ struct ShaderInfo
 class ResourceManager
 {
 private:
-    SDL_Window* window;
-    SDL_GPUDevice* gpuDevice;
+    SDL_Window* window = nullptr;
+    SDL_GPUDevice* gpuDevice = nullptr;
     unordered_map<string, SDL_GPUGraphicsPipeline*> pipelines;
     unordered_map<string, SDL_GPUBuffer*> buffers;
+    unordered_map<string, SDL_GPUSampler*> samplers;
+    unordered_map<string, SDL_GPUTexture*> textures;
     vector<SDL_GPUTransferBuffer*> transferBuffers;
 
 public:
@@ -35,10 +37,13 @@ public:
         const ShaderInfo& vertexShaderInfo,
         const ShaderInfo& fragmentShaderInfo
     );
+    SDL_GPUSampler* CreateSampler(const string& name, const SDL_GPUSamplerCreateInfo* samplerInfo);
+    SDL_GPUTexture* CreateTexture(const string& name, const SDL_Surface* surface);
+    static SDL_Surface* LoadPNG(const char* path, int desiredChannels);
     SDL_GPUShader* LoadShader(const ShaderInfo& info) const;
     SDL_GPUDevice* GetGPUDevice() const { return gpuDevice; }
     SDL_Window* GetWindow() const { return window; }
-    SDL_GPUGraphicsPipeline* GetGraphicsPipeline(const string& name) { return pipelines[name]; }
+    SDL_GPUGraphicsPipeline* GetGraphicsPipeline(const string& name);
     ~ResourceManager();
 };
 

@@ -76,15 +76,84 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
   resourceManager.Init("QUADS", 1000, 1000, SDL_WINDOW_RESIZABLE);
 
   resourceManager.CreateGraphicsPipeline("sprites",
-                                         {"./shaders/triangle.vert.hlsl", 0, 1, 1, 0},
-                                         {"./shaders/triangle.frag.hlsl", 0, 0, 0, 0}
+                                         {"./shaders/sprite.vert.hlsl", 0, 1, 1, 0},
+                                         {"./shaders/sprite.frag.hlsl", 0, 0, 0, 0}
   );
+
+  constexpr SDL_GPUSamplerCreateInfo samplerInfo = {
+    .min_filter = SDL_GPU_FILTER_NEAREST,
+    .mag_filter = SDL_GPU_FILTER_NEAREST,
+    .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+    .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+    .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+    .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+  };
+  resourceManager.CreateSampler("spriteSampler", &samplerInfo);
+
   spriteBatch = new SpriteBatch(&resourceManager, 1000000);
 
   for (int i = 0; i < SPRITE_COUNT; i++)
   {
     spriteBatch->AddSprite(rand() % 1000, rand() % 1000, 10.0f);
   }
+
+  // Upload quad vertices and index data
+  SDL_GPUTransferBufferCreateInfo vertexTransferBufferCreateInfo = {
+    .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+    .size = sizeof(PositionTextureVertex) * 4 + sizeof(Uint16) * 6
+  };
+  auto* vertexTransferBuffer = resourceManager.AcquireTransferBuffer(&vertexTransferBufferCreateInfo);
+
+  auto* transferData = static_cast<PositionTextureVertex*>(SDL_MapGPUTransferBuffer(
+    resourceManager.GetGPUDevice(), vertexTransferBuffer,
+    false));
+
+  transferData[0] = {-1, 1, 0, 0, 0};
+  transferData[1] = {1, 1, 0, 4, 0};
+  transferData[2] = {1, -1, 0, 4, 4};
+  transferData[3] = {-1, -1, 0, 0, 4};
+
+  auto* indexData = reinterpret_cast<Uint16*>(&transferData[4]);
+  indexData[0] = 0;
+  indexData[1] = 1;
+  indexData[2] = 2;
+  indexData[3] = 0;
+  indexData[4] = 2;
+  indexData[5] = 3;
+
+  SDL_UnmapGPUTransferBuffer(resourceManager.GetGPUDevice(), vertexTransferBuffer);
+
+  // Setup texture
+  auto imageData = resourceManager.LoadPNG("./Content/Textures/atlas.png", 4);
+  auto texture = resourceManager.CreateTexture(
+    "sprite_atlas",
+    imageData
+  );
+  SDL_GPUTransferBufferCreateInfo textureTransferBufferCreateInfo = {
+    .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+    .size = sizeof(PositionTextureVertex) * 4 + sizeof(Uint16) * 6
+  };
+  auto textureTransferBuffer = resourceManager.AcquireTransferBuffer(&textureTransferBufferCreateInfo);
+
+  auto textureTransferPtr = static_cast<Uint8*>(SDL_MapGPUTransferBuffer(
+    resourceManager.GetGPUDevice(),
+    textureTransferBuffer,
+    false
+  ));
+  SDL_memcpy(textureTransferPtr, imageData->pixels, imageData->w * imageData->h * 4);
+
+  // Upload the transfer data to the GPU resources
+  SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(resourceManager.GetGPUDevice());
+  SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
+
+  SDL_GPUTransferBufferLocation transferBufferLocation = {
+    .transfer_buffer = vertexTransferBuffer,
+    .offset = 0,
+  };
+  SDL_GPUBufferRegion transferBufferRegion = {
+    .buffer = vertexTransferBuffer,
+  };
+  SDL_UploadToGPUBuffer()
 
   return SDL_APP_CONTINUE;
 }

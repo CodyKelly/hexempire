@@ -1,19 +1,21 @@
-struct ShapeData
+struct SpriteData
 {
     float3 Position;
     float Rotation;
     float Scale;
     float3 Padding;
+    float TexU, TexV, TexW, TexH;
     float4 Color;
 };
 
 struct Output
 {
+    float2 TexCoord;
     float4 Color : TEXCOORD0;
     float4 Position : SV_Position;
 };
 
-StructuredBuffer<ShapeData> DataBuffer : register(t0, space0);
+StructuredBuffer<SpriteData> DataBuffer : register(t0, space0);
 
 cbuffer UniformBlock : register(b0, space1)
 {
@@ -34,7 +36,7 @@ Output main(uint id: SV_VertexID)
 {
     uint shapeIndex = id / 6;
     uint vert = id % 6;
-    ShapeData shape = DataBuffer[shapeIndex];
+    SpriteData shape = DataBuffer[shapeIndex];
 
     float c = cos(shape.Rotation);
     float s = sin(shape.Rotation);

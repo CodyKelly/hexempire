@@ -11,11 +11,19 @@
 #include "ResourceManager.h"
 #include "math.h"
 
+struct PositionTextureVertex
+{
+    float x, y, z;
+    float u, v;
+};
+
 struct SpriteInstance
 {
-    float x, y, z, rotation;
-    float scale, padding1, padding2, padding3;
-    float r, g, b, a;
+    alignas(16) float x, y, z;
+    alignas(16) float rotation;
+    alignas(16) float w, h;
+    alignas(16) float tex_u, tex_v, tex_w, tex_h;
+    alignas(16) float r, g, b, a;
 };
 
 class SpriteBatch
@@ -49,13 +57,10 @@ public:
     size_t GetSpriteCount() const;
     void Clear();
 
-    // Mark data as dirty (call after bulk updates)
     void MarkDirty();
 
-    // Upload sprite data to GPU
     void Upload(SDL_GPUCommandBuffer* commandBuffer);
 
-    // Draw all sprites in the batch
     void Draw(SDL_GPURenderPass* renderPass, SDL_GPUCommandBuffer* commandBuffer,
               const Matrix4x4& viewProjection);
 };
