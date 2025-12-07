@@ -42,22 +42,7 @@ void ResourceManager::Init(const char* windowTitle, int width, int height, SDL_W
 
     pipelines = std::unordered_map<string, SDL_GPUGraphicsPipeline*>();
     buffers = std::unordered_map<string, SDL_GPUBuffer*>();
-    transferBuffers = std::vector<SDL_GPUTransferBuffer*>();
-}
-
-SDL_GPUTransferBuffer* ResourceManager::AcquireTransferBuffer(const SDL_GPUTransferBufferCreateInfo* createInfo)
-{
-    for (auto buffer : transferBuffers)
-    {
-        if (sizeof(buffer) == createInfo->size)
-        {
-            return buffer;
-        }
-    }
-
-    SDL_GPUTransferBuffer* newBuffer = SDL_CreateGPUTransferBuffer(gpuDevice, createInfo);
-    transferBuffers.push_back(newBuffer);
-    return newBuffer;
+    transferBuffers = std::unordered_map<string, SDL_GPUTransferBuffer*>();
 }
 
 ResourceManager::~ResourceManager()
@@ -66,7 +51,7 @@ ResourceManager::~ResourceManager()
     {
         SDL_ReleaseGPUBuffer(gpuDevice, buffer);
     }
-    for (const auto buffer : transferBuffers)
+    for (const auto buffer : transferBuffers | std::views::values)
     {
         SDL_ReleaseGPUTransferBuffer(gpuDevice, buffer);
     }
@@ -98,6 +83,19 @@ SDL_GPUBuffer* ResourceManager::CreateBuffer(const string& name, const SDL_GPUBu
     buffers[name] = SDL_CreateGPUBuffer(gpuDevice, createInfo);
 
     return buffers[name];
+}
+
+SDL_GPUTransferBuffer* ResourceManager::CreateTransferBuffer(const string& name,
+                                                             const SDL_GPUTransferBufferCreateInfo* createInfo)
+{
+    if (transferBuffers.contains(name))
+    {
+        throw std::runtime_error("CreateBuffer: Buffer already exists");
+    }
+
+    transferBuffers[name] = SDL_CreateGPUTransferBuffer(gpuDevice, createInfo);
+
+    return transferBuffers[name];
 }
 
 SDL_GPUSampler* ResourceManager::CreateSampler(const string& name, const SDL_GPUSamplerCreateInfo* samplerInfo)

@@ -102,7 +102,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
     .size = sizeof(PositionTextureVertex) * 4 + sizeof(Uint16) * 6
   };
-  auto* vertexTransferBuffer = resourceManager.AcquireTransferBuffer(&vertexTransferBufferCreateInfo);
+  auto* vertexTransferBuffer = resourceManager.CreateTransferBuffer("vertexTBuffer", &vertexTransferBufferCreateInfo);
 
   auto* transferData = static_cast<PositionTextureVertex*>(SDL_MapGPUTransferBuffer(
     resourceManager.GetGPUDevice(), vertexTransferBuffer,
@@ -133,7 +133,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
     .size = sizeof(PositionTextureVertex) * 4 + sizeof(Uint16) * 6
   };
-  auto textureTransferBuffer = resourceManager.AcquireTransferBuffer(&textureTransferBufferCreateInfo);
+  auto textureTransferBuffer = resourceManager.CreateTransferBuffer("texTBuffer", &textureTransferBufferCreateInfo);
 
   auto textureTransferPtr = static_cast<Uint8*>(SDL_MapGPUTransferBuffer(
     resourceManager.GetGPUDevice(),
@@ -165,6 +165,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
   // Get current window size
   int windowWidth, windowHeight;
   SDL_GetWindowSize(resourceManager.GetWindow(), &windowWidth, &windowHeight);
+  camera.SetSize({(float)windowWidth, (float)windowHeight});
 
   float centerX = windowWidth / 2.0f;
   float centerY = windowHeight / 2.0f;
@@ -218,8 +219,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
       commandBuffer, &colorTarget, 1, nullptr);
     spriteBatch->Draw(renderPass, commandBuffer, camera.GetViewMatrix());
-
-    camera.SetScale(camera.GetScale() * 1.001f);
 
     SDL_EndGPURenderPass(renderPass);
   }

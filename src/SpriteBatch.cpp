@@ -4,20 +4,22 @@
 
 #include "SpriteBatch.h"
 
-SpriteBatch::SpriteBatch(ResourceManager* rm, Uint32 maxSpriteCount)
+SpriteBatch::SpriteBatch(string batchName, ResourceManager* rm, Uint32 maxSpriteCount)
     : resourceManager(rm), maxSprites(maxSpriteCount), isDirty(true)
 {
+    name = batchName;
+
     SDL_GPUBufferCreateInfo bufferInfo = {
         .usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
         .size = static_cast<Uint32>(sizeof(SpriteInstance)) * maxSprites
     };
-    spriteBuffer = rm->CreateBuffer("spriteBatch", &bufferInfo);
+    spriteBuffer = rm->CreateBuffer(name + "SpriteBatch", &bufferInfo);
 
     SDL_GPUTransferBufferCreateInfo transferInfo = {
         .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
         .size = static_cast<Uint32>(sizeof(SpriteInstance)) * maxSprites
     };
-    transferBuffer = rm->AcquireTransferBuffer(&transferInfo);
+    transferBuffer = rm->CreateTransferBuffer(name + "BatchTBuffer", &transferInfo);
 
     sprites.reserve(maxSprites);
 }

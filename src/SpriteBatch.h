@@ -33,12 +33,13 @@ private:
     SDL_GPUBuffer* spriteBuffer;
     SDL_GPUTransferBuffer* transferBuffer;
 
+    std::string name;
     std::vector<SpriteInstance> sprites;
     Uint32 maxSprites;
     bool isDirty;
 
 public:
-    SpriteBatch(ResourceManager* rm, Uint32 maxSpriteCount);
+    SpriteBatch(std::string batchName, ResourceManager* rm, Uint32 maxSpriteCount);
 
     // Reserve space for sprites
     void Reserve(size_t count);

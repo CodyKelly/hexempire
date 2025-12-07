@@ -112,13 +112,16 @@ struct Matrix4x4
     float m41, m42, m43, m44;
 };
 
-inline Matrix4x4 Matrix4x4_CreateOrthographicOffCenter(const Vector2& size, const Vector2& scale)
+inline Matrix4x4 Matrix4x4_CreateOrthographicOffCenter(const Vector2& size, const Vector2& scale,
+                                                       const Vector2& position)
 {
+    float sx = 2.0f / (size.x * scale.x);
+    float sy = -2.0f / (size.y * scale.y);
     return (Matrix4x4){
-        2.0f / size.x, 0, 0, 0,
-        0, -2.0f / size.y, 0, 0,
+        sx, 0, 0, 0,
+        0, sy, 0, 0,
         0, 0, 1, 0,
-        -1, 1, 0, 1
+        -position.x * sx - 1, -position.y * sy + 1, 0, 1
     };
 }
 

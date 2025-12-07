@@ -24,14 +24,14 @@ private:
     SDL_GPUDevice* gpuDevice = nullptr;
     unordered_map<string, SDL_GPUGraphicsPipeline*> pipelines;
     unordered_map<string, SDL_GPUBuffer*> buffers;
+    unordered_map<string, SDL_GPUTransferBuffer*> transferBuffers;
     unordered_map<string, SDL_GPUSampler*> samplers;
     unordered_map<string, SDL_GPUTexture*> textures;
-    vector<SDL_GPUTransferBuffer*> transferBuffers;
 
 public:
     void Init(const char* windowTitle, int width, int height, SDL_WindowFlags windowFlags);
     SDL_GPUBuffer* CreateBuffer(const string& name, const SDL_GPUBufferCreateInfo* createInfo);
-    SDL_GPUTransferBuffer* AcquireTransferBuffer(const SDL_GPUTransferBufferCreateInfo* createInfo);
+    SDL_GPUTransferBuffer* CreateTransferBuffer(const string& name, const SDL_GPUTransferBufferCreateInfo* createInfo);
     SDL_GPUGraphicsPipeline* CreateGraphicsPipeline(
         const string& name,
         const ShaderInfo& vertexShaderInfo,
