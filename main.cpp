@@ -27,7 +27,7 @@ struct TimeInfo
   double fps;
 };
 
-constexpr uint32_t SPRITE_COUNT = 10000;
+constexpr uint32_t SPRITE_COUNT = 1;
 
 Camera camera = Camera({1000, 1000});
 
@@ -90,38 +90,12 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
   };
   resourceManager.CreateSampler("spriteSampler", &samplerInfo);
 
-  spriteBatch = new SpriteBatch(&resourceManager, 1000000);
+  spriteBatch = new SpriteBatch("sprites", &resourceManager, 1000000);
 
   for (int i = 0; i < SPRITE_COUNT; i++)
   {
     spriteBatch->AddSprite(rand() % 1000, rand() % 1000, 10.0f);
   }
-
-  // Upload quad vertices and index data
-  SDL_GPUTransferBufferCreateInfo vertexTransferBufferCreateInfo = {
-    .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-    .size = sizeof(PositionTextureVertex) * 4 + sizeof(Uint16) * 6
-  };
-  auto* vertexTransferBuffer = resourceManager.CreateTransferBuffer("vertexTBuffer", &vertexTransferBufferCreateInfo);
-
-  auto* transferData = static_cast<PositionTextureVertex*>(SDL_MapGPUTransferBuffer(
-    resourceManager.GetGPUDevice(), vertexTransferBuffer,
-    false));
-
-  transferData[0] = {-1, 1, 0, 0, 0};
-  transferData[1] = {1, 1, 0, 4, 0};
-  transferData[2] = {1, -1, 0, 4, 4};
-  transferData[3] = {-1, -1, 0, 0, 4};
-
-  auto* indexData = reinterpret_cast<Uint16*>(&transferData[4]);
-  indexData[0] = 0;
-  indexData[1] = 1;
-  indexData[2] = 2;
-  indexData[3] = 0;
-  indexData[4] = 2;
-  indexData[5] = 3;
-
-  SDL_UnmapGPUTransferBuffer(resourceManager.GetGPUDevice(), vertexTransferBuffer);
 
   // Setup texture
   auto imageData = resourceManager.LoadPNG("./Content/Textures/atlas.png", 4);
@@ -131,29 +105,42 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
   );
   SDL_GPUTransferBufferCreateInfo textureTransferBufferCreateInfo = {
     .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-    .size = sizeof(PositionTextureVertex) * 4 + sizeof(Uint16) * 6
+    .size = static_cast<Uint32>(imageData->w * imageData->h * 4)
   };
   auto textureTransferBuffer = resourceManager.CreateTransferBuffer("texTBuffer", &textureTransferBufferCreateInfo);
 
+
+  // Upload the transfer data to the GPU resources
+  SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(resourceManager.GetGPUDevice());
+  SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
+
+  // Map and copy image data
   auto textureTransferPtr = static_cast<Uint8*>(SDL_MapGPUTransferBuffer(
     resourceManager.GetGPUDevice(),
     textureTransferBuffer,
     false
   ));
   SDL_memcpy(textureTransferPtr, imageData->pixels, imageData->w * imageData->h * 4);
+  SDL_UnmapGPUTransferBuffer(resourceManager.GetGPUDevice(), textureTransferBuffer);
 
-  // Upload the transfer data to the GPU resources
-  SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(resourceManager.GetGPUDevice());
-  SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
-
-  SDL_GPUTransferBufferLocation transferBufferLocation = {
-    .transfer_buffer = vertexTransferBuffer,
+  // Upload texture to GPU
+  SDL_GPUTextureTransferInfo texTransferInfo = {
+    .transfer_buffer = textureTransferBuffer,
     .offset = 0,
   };
-  SDL_GPUBufferRegion transferBufferRegion = {
-    .buffer = vertexTransferBuffer,
+  SDL_GPUTextureRegion texRegion = {
+    .texture = texture,
+    .w = static_cast<Uint32>(imageData->w),
+    .h = static_cast<Uint32>(imageData->h),
+    .d = 1
   };
-  SDL_UploadToGPUBuffer()
+  SDL_UploadToGPUTexture(copyPass, &texTransferInfo, &texRegion, false);
+
+  SDL_EndGPUCopyPass(copyPass);
+  SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
+
+  // Clean up the surface after upload
+  SDL_DestroySurface(imageData);
 
   return SDL_APP_CONTINUE;
 }
@@ -175,22 +162,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
   for (size_t i = 0; i < spriteCount; i++)
   {
-    float spiralSpeed = 0.25f;
-    float spiralTightness = 500.0f / SPRITE_COUNT;
-    float baseAngle = i * 0.05f;
-
-    float angle = baseAngle + totalTime * spiralSpeed;
-    float radius = i * spiralTightness;
-
-    sprites[i].x = centerX + SDL_cosf(angle) * radius;
-    sprites[i].y = centerY + SDL_sinf(angle) * radius;
-    sprites[i].rotation = angle;
-
-    float t = (float)i / spriteCount * SDL_sinf(totalTime / 6.0f);
-    sprites[i].r = 0.5f + 0.5f * SDL_sinf(t * 6.28f);
-    sprites[i].g = 0.5f + 0.5f * SDL_sinf(t * 6.28f + 2.09f);
-    sprites[i].b = 0.5f + 0.5f * SDL_sinf(t * 6.28f + 4.18f);
-    sprites[i].a = 1.0f;
+    sprites[i].x = centerX;
+    sprites[i].y = centerY;
   }
 
   // Mark as dirty after bulk update

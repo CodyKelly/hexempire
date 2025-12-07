@@ -11,7 +11,7 @@ Matrix4x4 Camera::GetViewMatrix()
 {
     if (_viewMatrixDirty)
     {
-        _viewMatrix = Matrix4x4_CreateOrthographicOffCenter(_size, _transform.scale);
+        _viewMatrix = Matrix4x4_CreateOrthographicOffCenter(_size, _transform.scale, {0, 0});
         _viewMatrixDirty = false;
     }
     return _viewMatrix;
