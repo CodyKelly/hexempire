@@ -42,6 +42,11 @@ Output main(uint id: SV_VertexID)
     float s = sin(shape.Rotation);
 
     float2 coord = vertexPos[vert];
+
+    float2 texCoord = coord;
+    texCoord.x = shape.TexU + texCoord.x * shape.TexW;
+    texCoord.y = shape.TexV + texCoord.y * shape.TexH;
+
     coord *= shape.Scale;
     float2x2 rotation = { c, s, -s, c };
     coord = mul(coord, rotation);
@@ -51,6 +56,7 @@ Output main(uint id: SV_VertexID)
     Output output;
 
     output.Position = mul(ViewProjectionMatrix, float4(coordWithDepth, 1.0f));
+	output.Texcoord = texCoord;
     output.Color = shape.Color;
     return output;
 }

@@ -11,7 +11,7 @@ Matrix4x4 Camera::GetViewMatrix()
 {
     if (_viewMatrixDirty)
     {
-        _viewMatrix = Matrix4x4_CreateOrthographicOffCenter(_size, _transform.scale, {0, 0});
+        _viewMatrix = Matrix4x4_CreateOrthographicOffCenter(_size, _transform.scale, _transform.position);
         _viewMatrixDirty = false;
     }
     return _viewMatrix;
@@ -20,6 +20,7 @@ Matrix4x4 Camera::GetViewMatrix()
 void Camera::SetSize(const Vector2& size)
 {
     _size = size;
+    _viewMatrixDirty = true;
 }
 
 void Camera::SetScale(const Vector2& scale)
@@ -28,3 +29,14 @@ void Camera::SetScale(const Vector2& scale)
     _viewMatrixDirty = true;
 }
 
+void Camera::SetPosition(const Vector2& position)
+{
+    _transform.position = position;
+    _viewMatrixDirty = true;
+}
+
+void Camera::Move(const Vector2& delta)
+{
+    _transform.position += delta;
+    _viewMatrixDirty = true;
+}

@@ -30,6 +30,10 @@ public:
     void SetSize(const Vector2& size);
     void SetScale(const Vector2& scale);
     Vector2 GetScale() const { return _transform.scale; }
+
+    void SetPosition(const Vector2& position);
+    Vector2 GetPosition() const { return _transform.position; }
+    void Move(const Vector2& delta);
 };
 
 

@@ -273,7 +273,7 @@ SDL_Surface* ResourceManager::LoadPNG(const char* path, int desiredChannels)
         return nullptr;
     }
 
-    if (desiredChannels == 4) format = SDL_PIXELFORMAT_RGBA8888;
+    if (desiredChannels == 4) format = SDL_PIXELFORMAT_ABGR8888;
     else
     {
         SDL_assert(!"Unexpected desiredChannels");

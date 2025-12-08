@@ -11,6 +11,11 @@
 #include "src/SpriteBatch.h"
 #include "src/math.h"
 
+constexpr float CAMERA_SPEED = 300.0f; // pixels per second
+constexpr float ZOOM_SPEED = 0.1f; // zoom factor per scroll tick
+constexpr float MIN_ZOOM = 0.1f;
+constexpr float MAX_ZOOM = 10.0f;
+
 ResourceManager resourceManager;
 
 SDL_GPUCommandBuffer* commandBuffer;
@@ -77,7 +82,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
   resourceManager.CreateGraphicsPipeline("sprites",
                                          {"./shaders/sprite.vert.hlsl", 0, 1, 1, 0},
-                                         {"./shaders/sprite.frag.hlsl", 0, 0, 0, 0}
+                                         {"./shaders/sprite.frag.hlsl", 1, 0, 0, 0}
   );
 
   constexpr SDL_GPUSamplerCreateInfo samplerInfo = {
@@ -89,19 +94,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
   };
   auto sampler = resourceManager.CreateSampler("spriteSampler", &samplerInfo);
-
-  spriteBatch = new SpriteBatch("sprites", &resourceManager, 1000000);
-
-  for (int i = 0; i < SPRITE_COUNT; i++)
-  {
-    spriteBatch->AddSprite({
-      0, 0, 0,
-      0,
-      100, 100, 0, 0,
-      0.0f, 0.0f, 1.0f, 1.0f,
-      1, 1, 1, 1
-    });
-  }
 
   // Setup texture
   auto imageData = resourceManager.LoadPNG("./Content/Textures/atlas.png", 4);
@@ -151,6 +143,21 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
   SDL_EndGPUCopyPass(copyPass);
   SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
 
+  spriteBatch = new SpriteBatch("sprites", &resourceManager, 1000000);
+
+  float texWidth = static_cast<float>(imageData->w);
+  float texHeight = static_cast<float>(imageData->h);
+
+  spriteBatch->AddSprite({
+    0,
+    0,
+    0, // z
+    25, // rotation
+    texWidth, texHeight, 0, 0,
+    0.0f, 0.0f, 1.0f, 1.0f,
+    1, 1, 1, 1
+  });
+
   spriteBatch->SetTexture(texture, sampler);
 
   // Clean up the surface after upload
@@ -159,9 +166,33 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
   return SDL_APP_CONTINUE;
 }
 
+void handleInput(float deltaTime)
+{
+  const bool* keyState = SDL_GetKeyboardState(nullptr);
+  Vector2 moveDir = {0, 0};
+
+  if (keyState[SDL_SCANCODE_LEFT])
+    moveDir.x -= 1.0f;
+  if (keyState[SDL_SCANCODE_RIGHT])
+    moveDir.x += 1.0f;
+  if (keyState[SDL_SCANCODE_UP])
+    moveDir.y -= 1.0f;
+  if (keyState[SDL_SCANCODE_DOWN])
+    moveDir.y += 1.0f;
+
+  // Normalize diagonal movement
+  if (moveDir.x != 0 || moveDir.y != 0)
+  {
+    moveDir = moveDir.Normalized();
+    camera.Move(moveDir * CAMERA_SPEED * deltaTime);
+  }
+}
+
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
   auto [deltaTime, totalTime, fps] = updateTime();
+
+  handleInput(static_cast<float>(deltaTime));
 
   // Get current window size
   int windowWidth, windowHeight;
@@ -208,22 +239,6 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
   {
   case SDL_EVENT_QUIT:
     return SDL_APP_SUCCESS;
-    break;
-
-  case SDL_EVENT_KEY_DOWN:
-    switch (event->key.scancode)
-    {
-    case SDL_SCANCODE_LEFT:
-      break;
-
-    case SDL_SCANCODE_RIGHT:
-      break;
-
-    default:
-      break;
-    }
-    break;
-
   default:
     break;
   }
