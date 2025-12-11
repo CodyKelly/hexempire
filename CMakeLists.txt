@@ -42,5 +42,5 @@ target_link_libraries(atlas
 add_custom_command(
         TARGET atlas
         POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/src/shaders "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders")
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+        ${CMAKE_SOURCE_DIR}/content "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/content")
