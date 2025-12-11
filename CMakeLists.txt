@@ -24,6 +24,8 @@ add_executable(atlas main.cpp
         src/Camera.h
         src/Camera.cpp
         src/Transform.h
+        src/CameraSystem.cpp
+        src/CameraSystem.h
 )
 
 # Link to the actual SDL3 library.

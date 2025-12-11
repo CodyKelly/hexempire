@@ -290,31 +290,6 @@ SDL_Surface* ResourceManager::LoadPNG(const char* path, int desiredChannels)
     return result;
 }
 
-SDL_GPUTexture* ResourceManager::CreateTexture(
-    const string& name,
-    const SDL_Surface* surface)
-{
-    auto textureInfo = SDL_GPUTextureCreateInfo{
-        .type = SDL_GPU_TEXTURETYPE_2D,
-        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
-        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
-        .width = static_cast<Uint16>(surface->w),
-        .height = static_cast<Uint16>(surface->h),
-        .layer_count_or_depth = 1,
-        .num_levels = 1,
-    };
-
-    auto texture = SDL_CreateGPUTexture(gpuDevice, &textureInfo);
-    if (texture == nullptr)
-    {
-        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to create texture: %s", SDL_GetError());
-        return nullptr;
-    }
-
-    textures[name] = texture;
-    return texture;
-}
-
 SDL_GPUGraphicsPipeline* ResourceManager::GetGraphicsPipeline(const string& name)
 {
     if (!pipelines.contains(name))
@@ -322,4 +297,72 @@ SDL_GPUGraphicsPipeline* ResourceManager::GetGraphicsPipeline(const string& name
         return nullptr;
     }
     return pipelines[name];
+}
+
+SDL_GPUTexture* ResourceManager::CreateTexture(const string& name, const char* pngPath)
+{
+    SDL_Surface* surface = LoadPNG(pngPath, 4);
+    if (!surface)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to load texture: %s", pngPath);
+        return nullptr;
+    }
+
+    SDL_Log("Loaded texture: %dx%d, format=%d", surface->w, surface->h, surface->format);
+
+    auto textureInfo = SDL_GPUTextureCreateInfo{
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .width = static_cast<Uint32>(surface->w),
+        .height = static_cast<Uint32>(surface->h),
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+    };
+
+    SDL_GPUTexture* texture = SDL_CreateGPUTexture(gpuDevice, &textureInfo);
+    if (!texture)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to create GPU texture: %s", SDL_GetError());
+        SDL_DestroySurface(surface);
+        return nullptr;
+    }
+
+    // Create temporary transfer buffer for upload
+    SDL_GPUTransferBufferCreateInfo transferInfo = {
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+        .size = static_cast<Uint32>(surface->w * surface->h * 4)
+    };
+    SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(gpuDevice, &transferInfo);
+
+    // Map and copy data
+    auto* dataPtr = static_cast<Uint8*>(SDL_MapGPUTransferBuffer(gpuDevice, transferBuffer, false));
+    SDL_memcpy(dataPtr, surface->pixels, surface->w * surface->h * 4);
+    SDL_UnmapGPUTransferBuffer(gpuDevice, transferBuffer);
+
+    // Upload to GPU
+    SDL_GPUCommandBuffer* cmdBuf = SDL_AcquireGPUCommandBuffer(gpuDevice);
+    SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmdBuf);
+
+    SDL_GPUTextureTransferInfo texTransferInfo = {
+        .transfer_buffer = transferBuffer,
+        .offset = 0,
+    };
+    SDL_GPUTextureRegion texRegion = {
+        .texture = texture,
+        .w = static_cast<Uint32>(surface->w),
+        .h = static_cast<Uint32>(surface->h),
+        .d = 1
+    };
+    SDL_UploadToGPUTexture(copyPass, &texTransferInfo, &texRegion, false);
+
+    SDL_EndGPUCopyPass(copyPass);
+    SDL_SubmitGPUCommandBuffer(cmdBuf);
+
+    // Cleanup
+    SDL_ReleaseGPUTransferBuffer(gpuDevice, transferBuffer);
+    SDL_DestroySurface(surface);
+
+    textures[name] = texture;
+    return texture;
 }

@@ -1,252 +1,204 @@
 #define SDL_MAIN_USE_CALLBACKS
-
 #define LogError(error) (SDL_LogError(SDL_LOG_CATEGORY_ERROR, error))
 
 #include "SDL3/SDL_main.h"
 #include "SDL3/SDL.h"
-#include "SDL3_shadercross/SDL_shadercross.h"
-#include "src/Camera.h"
 
 #include "src/ResourceManager.h"
 #include "src/SpriteBatch.h"
-#include "src/math.h"
-
-constexpr float CAMERA_SPEED = 300.0f; // pixels per second
-constexpr float ZOOM_SPEED = 0.1f; // zoom factor per scroll tick
-constexpr float MIN_ZOOM = 0.1f;
-constexpr float MAX_ZOOM = 10.0f;
+#include "src/CameraSystem.h"
 
 ResourceManager resourceManager;
+SpriteBatch* spriteBatch = nullptr;
+Camera camera;
+CameraController cameraController;
 
-SDL_GPUCommandBuffer* commandBuffer;
-SDL_GPUTexture* swapchainTexture;
-SDL_GPUBuffer* spriteBuffer;
-SDL_GPUTransferBuffer* spriteTransferBuffer;
-
-SpriteBatch* spriteBatch;
-
-struct TimeInfo
+struct AppState
 {
-  double deltaTime;
-  double totalTime;
-  double fps;
+    double deltaTime = 0;
+    double totalTime = 0;
+    double fps = 0;
+    bool mouseDown = false;
+    Vector2 lastMousePos;
 };
 
-constexpr uint32_t SPRITE_COUNT = 1;
+AppState appState;
 
-Camera camera = Camera({1000, 1000});
-
-TimeInfo updateTime()
+void UpdateTime()
 {
-  static Uint64 lastFrameTime = 0;
-  static Uint64 fpsUpdateTime = 0;
-  static Uint64 frameCount = 0;
-  static float fps = 0.0f;
+    static Uint64 lastFrameTime = 0;
+    static Uint64 fpsUpdateTime = 0;
+    static Uint64 frameCount = 0;
 
-  Uint64 currentTime = SDL_GetTicksNS(); // Nanoseconds since SDL_Init
+    Uint64 currentTime = SDL_GetTicksNS();
 
-  // Initialize on first call
-  if (lastFrameTime == 0)
-  {
+    if (lastFrameTime == 0)
+    {
+        lastFrameTime = currentTime;
+        fpsUpdateTime = currentTime;
+    }
+
+    appState.deltaTime = (currentTime - lastFrameTime) / 1000000000.0;
+    appState.totalTime = currentTime / 1000000000.0;
     lastFrameTime = currentTime;
-    fpsUpdateTime = currentTime;
-  }
+    frameCount++;
 
-  // Calculate delta time in seconds
-  float deltaTime = (currentTime - lastFrameTime) / 1000000000.0f;
-  float totalTime = currentTime / 1000000000.0f; // Total time since init
-  lastFrameTime = currentTime;
+    float timeSinceUpdate = (currentTime - fpsUpdateTime) / 1000000000.0f;
+    if (timeSinceUpdate >= 1.0f)
+    {
+        appState.fps = frameCount / timeSinceUpdate;
 
-  frameCount++;
+        char title[256];
+        SDL_snprintf(title, sizeof(title), "ATLAS - FPS: %.1f", appState.fps);
+        SDL_SetWindowTitle(resourceManager.GetWindow(), title);
 
-  // Update FPS every second
-  float timeSinceUpdate = (currentTime - fpsUpdateTime) / 1000000000.0f;
-  if (timeSinceUpdate >= 1.0f)
-  {
-    fps = frameCount / timeSinceUpdate;
-
-    char title[256];
-    SDL_snprintf(title, sizeof(title), "QUADS - FPS: %.1f", fps);
-    SDL_SetWindowTitle(resourceManager.GetWindow(), title);
-
-    frameCount = 0;
-    fpsUpdateTime = currentTime;
-  }
-
-  return {deltaTime, totalTime, fps};
+        frameCount = 0;
+        fpsUpdateTime = currentTime;
+    }
 }
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 {
-  resourceManager.Init("QUADS", 1000, 1000, SDL_WINDOW_RESIZABLE);
+    resourceManager.Init("ATLAS", 1000, 1000, SDL_WINDOW_RESIZABLE);
 
-  resourceManager.CreateGraphicsPipeline("sprites",
-                                         {"./shaders/sprite.vert.hlsl", 0, 1, 1, 0},
-                                         {"./shaders/sprite.frag.hlsl", 1, 0, 0, 0}
-  );
+    resourceManager.CreateGraphicsPipeline("sprites",
+                                           {"./shaders/sprite.vert.hlsl", 0, 1, 1, 0},
+                                           {"./shaders/sprite.frag.hlsl", 1, 0, 0, 0}
+    );
 
-  constexpr SDL_GPUSamplerCreateInfo samplerInfo = {
-    .min_filter = SDL_GPU_FILTER_NEAREST,
-    .mag_filter = SDL_GPU_FILTER_NEAREST,
-    .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
-    .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-    .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-    .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-  };
-  auto sampler = resourceManager.CreateSampler("spriteSampler", &samplerInfo);
+    constexpr SDL_GPUSamplerCreateInfo samplerInfo = {
+        .min_filter = SDL_GPU_FILTER_NEAREST,
+        .mag_filter = SDL_GPU_FILTER_NEAREST,
+        .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+        .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+        .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+        .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+    };
+    auto sampler = resourceManager.CreateSampler("spriteSampler", &samplerInfo);
 
-  // Setup texture
-  auto imageData = resourceManager.LoadPNG("./Content/Textures/atlas.png", 4);
-  if (!imageData)
-  {
-    SDL_Log("Failed to load texture!");
-    return SDL_APP_FAILURE;
-  }
-  SDL_Log("Loaded texture: %dx%d, format=%d", imageData->w, imageData->h, imageData->format);
-  auto texture = resourceManager.CreateTexture(
-    "sprite_atlas",
-    imageData
-  );
-  SDL_GPUTransferBufferCreateInfo textureTransferBufferCreateInfo = {
-    .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-    .size = static_cast<Uint32>(imageData->w * imageData->h * 4)
-  };
-  auto textureTransferBuffer = resourceManager.CreateTransferBuffer("texTBuffer", &textureTransferBufferCreateInfo);
+    // Texture loading is now encapsulated in ResourceManager
+    auto texture = resourceManager.CreateTexture("sprite_atlas", "./Content/Textures/atlas.png");
+    if (!texture)
+    {
+        return SDL_APP_FAILURE;
+    }
 
+    spriteBatch = new SpriteBatch("sprites", &resourceManager, 1000000);
+    spriteBatch->SetTexture(texture, sampler);
 
-  // Upload the transfer data to the GPU resources
-  SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(resourceManager.GetGPUDevice());
-  SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
+    spriteBatch->AddSprite({
+        0, 0, 0,
+        0,
+        100, 100, 0, 0,
+        0.0f, 0.0f, 1.0f, 1.0f,
+        1, 1, 1, 1
+    });
 
-  // Map and copy image data
-  auto textureTransferPtr = static_cast<Uint8*>(SDL_MapGPUTransferBuffer(
-    resourceManager.GetGPUDevice(),
-    textureTransferBuffer,
-    false
-  ));
-  SDL_memcpy(textureTransferPtr, imageData->pixels, imageData->w * imageData->h * 4);
-  SDL_UnmapGPUTransferBuffer(resourceManager.GetGPUDevice(), textureTransferBuffer);
+    // Initialize camera
+    camera = Camera({1000, 1000});
+    cameraController = CameraController(&camera, {
+                                            .zoomMin = 0.1f,
+                                            .zoomMax = 10.0f,
+                                            .zoomSpeed = 0.1f,
+                                            .moveSpeed = 500.0f,
+                                            .smoothing = 8.0f
+                                        });
 
-  // Upload texture to GPU
-  SDL_GPUTextureTransferInfo texTransferInfo = {
-    .transfer_buffer = textureTransferBuffer,
-    .offset = 0,
-  };
-  SDL_GPUTextureRegion texRegion = {
-    .texture = texture,
-    .w = static_cast<Uint32>(imageData->w),
-    .h = static_cast<Uint32>(imageData->h),
-    .d = 1
-  };
-  SDL_UploadToGPUTexture(copyPass, &texTransferInfo, &texRegion, false);
-
-  SDL_EndGPUCopyPass(copyPass);
-  SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
-
-  spriteBatch = new SpriteBatch("sprites", &resourceManager, 1000000);
-
-  float texWidth = static_cast<float>(imageData->w);
-  float texHeight = static_cast<float>(imageData->h);
-
-  spriteBatch->AddSprite({
-    0,
-    0,
-    0, // z
-    25, // rotation
-    texWidth, texHeight, 0, 0,
-    0.0f, 0.0f, 1.0f, 1.0f,
-    1, 1, 1, 1
-  });
-
-  spriteBatch->SetTexture(texture, sampler);
-
-  // Clean up the surface after upload
-  SDL_DestroySurface(imageData);
-
-  return SDL_APP_CONTINUE;
-}
-
-void handleInput(float deltaTime)
-{
-  const bool* keyState = SDL_GetKeyboardState(nullptr);
-  Vector2 moveDir = {0, 0};
-
-  if (keyState[SDL_SCANCODE_LEFT])
-    moveDir.x -= 1.0f;
-  if (keyState[SDL_SCANCODE_RIGHT])
-    moveDir.x += 1.0f;
-  if (keyState[SDL_SCANCODE_UP])
-    moveDir.y -= 1.0f;
-  if (keyState[SDL_SCANCODE_DOWN])
-    moveDir.y += 1.0f;
-
-  // Normalize diagonal movement
-  if (moveDir.x != 0 || moveDir.y != 0)
-  {
-    moveDir = moveDir.Normalized();
-    camera.Move(moveDir * CAMERA_SPEED * deltaTime);
-  }
+    return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
-  auto [deltaTime, totalTime, fps] = updateTime();
+    UpdateTime();
 
-  handleInput(static_cast<float>(deltaTime));
+    // Update camera viewport to match window
+    int windowWidth, windowHeight;
+    SDL_GetWindowSize(resourceManager.GetWindow(), &windowWidth, &windowHeight);
+    camera.SetViewportSize({(float)windowWidth, (float)windowHeight});
 
-  // Get current window size
-  int windowWidth, windowHeight;
-  SDL_GetWindowSize(resourceManager.GetWindow(), &windowWidth, &windowHeight);
-  camera.SetSize({(float)windowWidth, (float)windowHeight});
+    // Update camera smoothing
+    cameraController.Update((float)appState.deltaTime);
 
-  // Mark as dirty after bulk update
-  //spriteBatch->MarkDirty();
+    // Acquire command buffer
+    SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(resourceManager.GetGPUDevice());
+    if (!commandBuffer) return SDL_APP_FAILURE;
 
-  commandBuffer = SDL_AcquireGPUCommandBuffer(resourceManager.GetGPUDevice());
-  if (!commandBuffer) return SDL_APP_FAILURE;
+    SDL_GPUTexture* swapchainTexture;
+    if (!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer,
+                                               resourceManager.GetWindow(), &swapchainTexture, nullptr, nullptr))
+    {
+        return SDL_APP_FAILURE;
+    }
 
-  if (!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer,
-                                             resourceManager.GetWindow(), &swapchainTexture, nullptr, nullptr))
-  {
-    return SDL_APP_FAILURE;
-  }
+    if (swapchainTexture)
+    {
+        spriteBatch->Upload(commandBuffer);
 
-  if (swapchainTexture)
-  {
-    spriteBatch->Upload(commandBuffer);
+        SDL_GPUColorTargetInfo colorTarget = {
+            .texture = swapchainTexture,
+            .clear_color = {0.25f, 0.25f, 1.0f, 1.0f},
+            .load_op = SDL_GPU_LOADOP_CLEAR,
+            .store_op = SDL_GPU_STOREOP_STORE
+        };
 
-    SDL_GPUColorTargetInfo colorTarget = {
-      .texture = swapchainTexture,
-      .clear_color = {0.25f, 0.25f, 1.0f, 1.0f},
-      .load_op = SDL_GPU_LOADOP_CLEAR,
-      .store_op = SDL_GPU_STOREOP_STORE
-    };
+        SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(commandBuffer, &colorTarget, 1, nullptr);
+        spriteBatch->Draw(renderPass, commandBuffer, camera.GetViewProjectionMatrix());
+        SDL_EndGPURenderPass(renderPass);
+    }
 
-    SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
-      commandBuffer, &colorTarget, 1, nullptr);
-    spriteBatch->Draw(renderPass, commandBuffer, camera.GetViewMatrix());
-
-    SDL_EndGPURenderPass(renderPass);
-  }
-
-  SDL_SubmitGPUCommandBuffer(commandBuffer);
-  return SDL_APP_CONTINUE;
+    SDL_SubmitGPUCommandBuffer(commandBuffer);
+    return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 {
-  switch (event->type)
-  {
-  case SDL_EVENT_QUIT:
-    return SDL_APP_SUCCESS;
-  default:
-    break;
-  }
+    switch (event->type)
+    {
+    case SDL_EVENT_QUIT:
+        return SDL_APP_SUCCESS;
 
-  return SDL_APP_CONTINUE;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        if (event->button.button == SDL_BUTTON_MIDDLE)
+        {
+            appState.mouseDown = true;
+            appState.lastMousePos = {event->button.x, event->button.y};
+        }
+        break;
+
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        if (event->button.button == SDL_BUTTON_MIDDLE)
+        {
+            appState.mouseDown = false;
+        }
+        break;
+
+    case SDL_EVENT_MOUSE_MOTION:
+        if (appState.mouseDown)
+        {
+            Vector2 currentPos = {event->motion.x, event->motion.y};
+            Vector2 delta = appState.lastMousePos - currentPos;
+            cameraController.Pan(delta);
+            appState.lastMousePos = currentPos;
+        }
+        break;
+
+    case SDL_EVENT_MOUSE_WHEEL:
+        {
+            float mouseX, mouseY;
+            SDL_GetMouseState(&mouseX, &mouseY);
+            cameraController.ZoomToPoint(event->wheel.y, {mouseX, mouseY});
+        }
+        break;
+
+    case SDL_EVENT_KEY_DOWN:
+        // Add keyboard controls as needed
+        break;
+    }
+
+    return SDL_APP_CONTINUE;
 }
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
-  delete spriteBatch;
+    delete spriteBatch;
 }

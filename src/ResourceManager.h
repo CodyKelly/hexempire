@@ -38,7 +38,7 @@ public:
         const ShaderInfo& fragmentShaderInfo
     );
     SDL_GPUSampler* CreateSampler(const string& name, const SDL_GPUSamplerCreateInfo* samplerInfo);
-    SDL_GPUTexture* CreateTexture(const string& name, const SDL_Surface* surface);
+    SDL_GPUTexture* CreateTexture(const string& name, const char* pngPath);
     static SDL_Surface* LoadPNG(const char* path, int desiredChannels);
     SDL_GPUShader* LoadShader(const ShaderInfo& info) const;
     SDL_GPUDevice* GetGPUDevice() const { return gpuDevice; }
