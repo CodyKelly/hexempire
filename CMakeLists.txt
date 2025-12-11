@@ -26,6 +26,10 @@ add_executable(atlas main.cpp
         src/Transform.h
         src/CameraSystem.cpp
         src/CameraSystem.h
+        src/hex/HexMapData.cpp
+        src/hex/HexMapData.h
+        src/hex/HexMapRenderer.cpp
+        src/hex/HexMapRenderer.h
 )
 
 # Link to the actual SDL3 library.
