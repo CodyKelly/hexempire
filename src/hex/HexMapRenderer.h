@@ -1,30 +1,40 @@
 //
-// Created by hoy on 12/10/25.
+// HexMapRenderer.h - Renders hex map to GPU
 //
 
 #ifndef ATLAS_HEXMAPRENDERER_H
 #define ATLAS_HEXMAPRENDERER_H
-#include "HexMapData.h"
-#include "../Camera.h"
-#include "../ResourceManager.h"
 
+#include "HexMapData.h"
+#include "../ResourceManager.h"
 
 class HexMapRenderer
 {
-    ResourceManager* _resourceManager;
-    HexMapData* _hexMapData;
-    SDL_GPUBuffer* _tileBuffer;
-    SDL_GPUTransferBuffer* _transferBuffer;
-    SDL_GPUGraphicsPipeline* _pipeline;
-
-    bool isDirty = true;
-
 public:
-    HexMapRenderer(ResourceManager*, HexMapData*);
+    HexMapRenderer(ResourceManager* rm);
 
-    void Upload(SDL_GPUCommandBuffer*);
-    void Draw(SDL_GPURenderPass*);
+    // Initialize GPU resources
+    void Initialize(size_t maxTileCount);
+
+    // Set the hex map data to render
+    void SetHexMapData(HexMapData* data) { _hexMapData = data; }
+
+    // Upload tile data to GPU if dirty
+    void Upload(SDL_GPUCommandBuffer* commandBuffer);
+
+    // Draw all hex tiles
+    void Draw(SDL_GPURenderPass* renderPass);
+
+    // Mark as needing reupload
+    void MarkDirty() { _isDirty = true; }
+
+private:
+    ResourceManager* _resourceManager;
+    HexMapData* _hexMapData = nullptr;
+    SDL_GPUBuffer* _tileBuffer = nullptr;
+    SDL_GPUTransferBuffer* _transferBuffer = nullptr;
+    size_t _maxTileCount = 0;
+    bool _isDirty = true;
 };
 
-
-#endif //ATLAS_HEXMAPRENDERER_H
+#endif // ATLAS_HEXMAPRENDERER_H

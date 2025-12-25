@@ -100,7 +100,7 @@ SDL_GPUTransferBuffer* ResourceManager::CreateTransferBuffer(const string& name,
 
 SDL_GPUSampler* ResourceManager::CreateSampler(const string& name, const SDL_GPUSamplerCreateInfo* samplerInfo)
 {
-    if (samplers[name])
+    if (samplers.contains(name))
     {
         throw std::runtime_error("CreateSampler: Sampler already exists");
     }
@@ -117,7 +117,7 @@ SDL_GPUGraphicsPipeline* ResourceManager::CreateGraphicsPipeline(
     const ShaderInfo& fragmentShaderInfo
 )
 {
-    if (pipelines[name])
+    if (pipelines.contains(name))
     {
         throw std::runtime_error("Resource already exists");
     }

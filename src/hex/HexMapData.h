@@ -1,26 +1,77 @@
 //
-// Created by hoy on 12/10/25.
+// HexMapData.h - Hex tile data for GPU rendering
 //
 
 #ifndef ATLAS_HEXMAPDATA_H
 #define ATLAS_HEXMAPDATA_H
+
+#include "HexCoord.h"
+#include "HexGrid.h"
+#include "../game/GameData.h"
 #include <vector>
 
-#include "SDL3/SDL_stdinc.h"
-
-struct HexTile
+// GPU-compatible hex tile data (must match shader struct)
+// Aligned to 16-byte boundaries for GPU
+struct HexTileGPU
 {
+    // Position in world space
+    float posX, posY;
+    // Hex size (outer radius)
+    float hexSize;
+    // Flags: bit 0 = selected, bit 1 = hovered, bit 2 = valid target, bit 3 = border
+    uint32_t flags;
+    // Territory color (from owner)
     float r, g, b, a;
+    // Highlight color overlay
+    float highlightR, highlightG, highlightB, highlightA;
 };
+
+// Flag bits
+constexpr uint32_t HEX_FLAG_SELECTED = 1 << 0;
+constexpr uint32_t HEX_FLAG_HOVERED = 1 << 1;
+constexpr uint32_t HEX_FLAG_VALID_TARGET = 1 << 2;
+constexpr uint32_t HEX_FLAG_BORDER = 1 << 3;
 
 class HexMapData
 {
-    std::pmr::vector<HexTile> _tiles;
-
 public:
-    HexMapData(int width, int height);
-    std::pmr::vector<HexTile>& GetTiles() { return _tiles; }
+    HexMapData();
+
+    // Initialize tiles from hex grid
+    void Initialize(const HexGrid& grid);
+
+    // Update tile data from game state
+    void UpdateFromGameState(
+        const HexGrid& grid,
+        const GameState& state,
+        const UIState& ui
+    );
+
+    // Mark data as needing upload
+    void MarkDirty() { _isDirty = true; }
+    [[nodiscard]] bool IsDirty() const { return _isDirty; }
+    void ClearDirty() { _isDirty = false; }
+
+    // Access tile data
+    [[nodiscard]] std::vector<HexTileGPU>& GetTiles() { return _tiles; }
+    [[nodiscard]] const std::vector<HexTileGPU>& GetTiles() const { return _tiles; }
+    [[nodiscard]] size_t GetTileCount() const { return _tiles.size(); }
+
+    // Get hex size
+    [[nodiscard]] float GetHexSize() const { return _hexSize; }
+
+private:
+    std::vector<HexTileGPU> _tiles;
+    std::unordered_map<HexCoord, size_t, HexCoordHash> _coordToIndex;
+    float _hexSize = 24.0f;
+    bool _isDirty = true;
+
+    // Determine if this hex is on a territory border
+    bool IsOnBorder(
+        const HexCoord& coord,
+        const HexGrid& grid,
+        const GameState& state
+    ) const;
 };
 
-
-#endif //ATLAS_HEXMAPDATA_H
+#endif // ATLAS_HEXMAPDATA_H

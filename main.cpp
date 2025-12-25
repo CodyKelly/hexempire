@@ -8,26 +8,49 @@
 #include "src/SpriteBatch.h"
 #include "src/CameraSystem.h"
 
-constexpr uint16_t MAP_WIDTH = 1, MAP_HEIGHT = 2;
+#include "src/hex/HexGrid.h"
+#include "src/hex/HexMapData.h"
+#include "src/hex/HexMapRenderer.h"
 
+#include "src/game/GameData.h"
+#include "src/game/GameController.h"
+#include "src/game/AIController.h"
+#include "src/game/InputHandler.h"
+
+#include "src/ui/DiceRenderer.h"
+
+// Global systems
 ResourceManager resourceManager;
-SpriteBatch* spriteBatch = nullptr;
 Camera camera;
 CameraController cameraController;
+
+// Game systems
+GameController* gameController = nullptr;
+AIController* aiController = nullptr;
+InputHandler* inputHandler = nullptr;
+
+// Rendering
+HexMapData* hexMapData = nullptr;
+HexMapRenderer* hexMapRenderer = nullptr;
+DiceRenderer* diceRenderer = nullptr;
+
+// UI state
+UIState uiState;
 
 struct AppState
 {
     double deltaTime = 0;
     double totalTime = 0;
     double fps = 0;
-    bool mouseDown = false;
+    bool cameraDragging = false;
     Vector2 lastMousePos;
 };
 
 struct VertexUniforms
 {
     Matrix4x4 viewProjection;
-    uint16_t mapWidth, mapHeight;
+    float time;
+    float pad1, pad2, pad3;
 };
 
 AppState appState;
@@ -56,8 +79,20 @@ void UpdateTime()
     {
         appState.fps = frameCount / timeSinceUpdate;
 
+        const GameState& state = gameController->GetState();
+        const char* phaseStr = "";
+        switch (state.phase)
+        {
+            case TurnPhase::SelectAttacker: phaseStr = "Select Attacker"; break;
+            case TurnPhase::SelectTarget: phaseStr = "Select Target"; break;
+            case TurnPhase::AITurn: phaseStr = "AI Thinking..."; break;
+            case TurnPhase::GameOver: phaseStr = "GAME OVER"; break;
+            default: phaseStr = ""; break;
+        }
+
         char title[256];
-        SDL_snprintf(title, sizeof(title), "ATLAS - FPS: %.1f", appState.fps);
+        SDL_snprintf(title, sizeof(title), "Hex Empire - Turn %d - %s - FPS: %.1f",
+                     state.turnNumber, phaseStr, appState.fps);
         SDL_SetWindowTitle(resourceManager.GetWindow(), title);
 
         frameCount = 0;
@@ -67,13 +102,20 @@ void UpdateTime()
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 {
-    resourceManager.Init("ATLAS", 1000, 1000, SDL_WINDOW_RESIZABLE);
+    resourceManager.Init("Hex Empire", 1200, 900, SDL_WINDOW_RESIZABLE);
 
+    // Create graphics pipelines
     resourceManager.CreateGraphicsPipeline("sprites",
                                            {"./content/shaders/sprite.vert.hlsl", 0, 1, 1, 0},
                                            {"./content/shaders/sprite.frag.hlsl", 1, 0, 0, 0}
     );
 
+    resourceManager.CreateGraphicsPipeline("hexTiles",
+                                           {"./content/shaders/hex_tile.vert.hlsl", 0, 1, 1, 0},
+                                           {"./content/shaders/hex_tile.frag.hlsl", 0, 0, 0, 0}
+    );
+
+    // Create sampler
     constexpr SDL_GPUSamplerCreateInfo samplerInfo = {
         .min_filter = SDL_GPU_FILTER_NEAREST,
         .mag_filter = SDL_GPU_FILTER_NEAREST,
@@ -82,35 +124,79 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
         .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
         .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
     };
-    auto sampler = resourceManager.CreateSampler("spriteSampler", &samplerInfo);
+    auto sampler = resourceManager.CreateSampler("default", &samplerInfo);
 
-
-    auto texture = resourceManager.CreateTexture("sprite_atlas", "./content/textures/atlas.png");
+    // Load texture
+    auto texture = resourceManager.CreateTexture("atlas", "./content/textures/atlas.png");
     if (!texture)
     {
+        LogError("Failed to load texture atlas");
         return SDL_APP_FAILURE;
     }
 
-    spriteBatch = new SpriteBatch("sprites", &resourceManager, 1);
-    spriteBatch->SetTexture(texture, sampler);
+    // Initialize game controller
+    gameController = new GameController();
 
-    spriteBatch->AddSprite({
-        0, 0, 0,
-        0,
-        640, 400, 0, 0,
-        0.0f, 0.0f, 0.5f, 0.5f,
-        1, 1, 1, 1
-    });
+    // Configure game
+    GameConfig config;
+    config.gridRadius = 8;
+    config.playerCount = 8;
+    config.humanPlayerIndex = 0;
+    config.targetTerritoryCount = 48;
+    config.startingDicePerPlayer = 20;
+    config.hexSize = 24.0f;
+    config.seed = 0;  // Random seed
+
+    gameController->InitializeGame(config);
+
+    // Initialize AI controller
+    aiController = new AIController(gameController);
+    gameController->SetAIController(aiController);
+
+    // Initialize hex map rendering
+    const HexGrid& grid = gameController->GetGrid();
+    hexMapData = new HexMapData();
+    hexMapData->Initialize(grid);
+
+    hexMapRenderer = new HexMapRenderer(&resourceManager);
+    hexMapRenderer->Initialize(grid.GetHexCount());
+    hexMapRenderer->SetHexMapData(hexMapData);
+
+    // Initialize dice renderer
+    diceRenderer = new DiceRenderer(&resourceManager);
+    diceRenderer->Initialize(1000, texture, sampler);  // Max 1000 dice sprites
 
     // Initialize camera
-    camera = Camera({1000, 1000});
+    int windowWidth, windowHeight;
+    SDL_GetWindowSize(resourceManager.GetWindow(), &windowWidth, &windowHeight);
+    camera = Camera({(float)windowWidth, (float)windowHeight});
+
+    // Center camera on grid
+    Vector2 gridCenter = grid.GetWorldCenter();
+    camera.SetPosition(gridCenter);
+    camera.SetScale({1.0f, 1.0f});
+
     cameraController = CameraController(&camera, {
-                                            .zoomMin = 0.1f,
-                                            .zoomMax = 10.0f,
-                                            .zoomSpeed = 0.1f,
-                                            .moveSpeed = 500.0f,
-                                            .smoothing = 8.0f
-                                        });
+        .zoomMin = 0.3f,
+        .zoomMax = 3.0f,
+        .zoomSpeed = 0.1f,
+        .moveSpeed = 500.0f,
+        .smoothing = 8.0f
+    });
+
+    // Initialize input handler
+    inputHandler = new InputHandler(gameController, &camera, &uiState);
+
+    // Set up UI state
+    uiState.endTurnBtnX = 20;
+    uiState.endTurnBtnY = 20;
+    uiState.endTurnBtnW = 100;
+    uiState.endTurnBtnH = 30;
+
+    // Initial UI update
+    inputHandler->UpdateUIState();
+
+    SDL_Log("Game initialized with %zu territories", gameController->GetState().territories.size());
 
     return SDL_APP_CONTINUE;
 }
@@ -127,6 +213,16 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     // Update camera smoothing
     cameraController.Update((float)appState.deltaTime);
 
+    // Update game logic
+    gameController->Update((float)appState.deltaTime);
+
+    // Update rendering data
+    const GameState& state = gameController->GetState();
+    const HexGrid& grid = gameController->GetGrid();
+
+    hexMapData->UpdateFromGameState(grid, state, uiState);
+    diceRenderer->UpdateFromGameState(state, grid);
+
     // Acquire command buffer
     SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(resourceManager.GetGPUDevice());
     if (!commandBuffer) return SDL_APP_FAILURE;
@@ -140,31 +236,40 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     if (swapchainTexture)
     {
-        spriteBatch->Upload(commandBuffer);
+        // Upload data to GPU
+        hexMapRenderer->Upload(commandBuffer);
+        diceRenderer->Upload(commandBuffer);
 
+        // Begin render pass
         SDL_GPUColorTargetInfo colorTarget = {
             .texture = swapchainTexture,
-            .clear_color = {0.25f, 0.25f, 1.0f, 1.0f},
+            .clear_color = {0.15f, 0.15f, 0.2f, 1.0f},
             .load_op = SDL_GPU_LOADOP_CLEAR,
             .store_op = SDL_GPU_STOREOP_STORE
         };
 
         SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(commandBuffer, &colorTarget, 1, nullptr);
 
-        VertexUniforms vertex_uniforms = {
+        // Push uniforms
+        VertexUniforms uniforms = {
             camera.GetViewProjectionMatrix(),
-            MAP_WIDTH,
-            MAP_HEIGHT
+            (float)appState.totalTime,
+            0, 0, 0
         };
 
         SDL_PushGPUVertexUniformData(
             commandBuffer,
             0,
-            &vertex_uniforms,
-            sizeof(vertex_uniforms)
+            &uniforms,
+            sizeof(uniforms)
         );
 
-        spriteBatch->Draw(renderPass);
+        // Draw hex map
+        hexMapRenderer->Draw(renderPass);
+
+        // Draw dice
+        diceRenderer->Draw(renderPass);
+
         SDL_EndGPURenderPass(renderPass);
     }
 
@@ -174,35 +279,47 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 {
-    const static auto mouseBtn = SDL_BUTTON_LEFT | SDL_BUTTON_MIDDLE;
     switch (event->type)
     {
     case SDL_EVENT_QUIT:
         return SDL_APP_SUCCESS;
 
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
-        if (event->button.button & mouseBtn)
+        // Middle mouse for camera pan
+        if (event->button.button == SDL_BUTTON_MIDDLE)
         {
-            appState.mouseDown = true;
+            appState.cameraDragging = true;
             appState.lastMousePos = {event->button.x, event->button.y};
+        }
+        // Left/right click handled by input handler
+        else
+        {
+            inputHandler->HandleEvent(*event);
         }
         break;
 
     case SDL_EVENT_MOUSE_BUTTON_UP:
-        if (event->button.button & mouseBtn)
+        if (event->button.button == SDL_BUTTON_MIDDLE)
         {
-            appState.mouseDown = false;
+            appState.cameraDragging = false;
+        }
+        else
+        {
+            inputHandler->HandleEvent(*event);
         }
         break;
 
     case SDL_EVENT_MOUSE_MOTION:
-        if (appState.mouseDown)
+        // Camera pan with middle mouse
+        if (appState.cameraDragging)
         {
             Vector2 currentPos = {event->motion.x, event->motion.y};
             Vector2 delta = appState.lastMousePos - currentPos;
             cameraController.Pan(delta);
             appState.lastMousePos = currentPos;
         }
+        // Update hover state
+        inputHandler->UpdateHover(event->motion.x, event->motion.y);
         break;
 
     case SDL_EVENT_MOUSE_WHEEL:
@@ -214,7 +331,23 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
         break;
 
     case SDL_EVENT_KEY_DOWN:
-        // Add keyboard controls as needed
+        inputHandler->HandleEvent(*event);
+
+        // R to restart game
+        if (event->key.scancode == SDL_SCANCODE_R)
+        {
+            GameConfig config = gameController->GetState().config;
+            config.seed = 0;  // New random seed
+            gameController->InitializeGame(config);
+            aiController = new AIController(gameController);
+            gameController->SetAIController(aiController);
+            hexMapData->Initialize(gameController->GetGrid());
+            inputHandler->UpdateUIState();
+            SDL_Log("Game restarted");
+        }
+        break;
+
+    default:
         break;
     }
 
@@ -223,5 +356,10 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
-    delete spriteBatch;
+    delete inputHandler;
+    delete aiController;
+    delete gameController;
+    delete diceRenderer;
+    delete hexMapRenderer;
+    delete hexMapData;
 }

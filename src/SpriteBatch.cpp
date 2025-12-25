@@ -4,6 +4,8 @@
 
 #include "SpriteBatch.h"
 
+#include <stdexcept>
+
 SpriteBatch::SpriteBatch(string batchName, ResourceManager* rm, Uint32 maxSpriteCount)
     : resourceManager(rm), maxSprites(maxSpriteCount), isDirty(true)
 {
@@ -53,11 +55,13 @@ const SpriteInstance* SpriteBatch::GetSpriteData() const
 
 SpriteInstance& SpriteBatch::GetSprite(size_t index)
 {
+    if (index >= sprites.size()) throw std::out_of_range("index out of range");
     return sprites[index];
 }
 
 const SpriteInstance& SpriteBatch::GetSprite(size_t index) const
 {
+    if (index >= sprites.size()) throw std::out_of_range("index out of range");
     return sprites[index];
 }
 
@@ -87,7 +91,7 @@ void SpriteBatch::Upload(SDL_GPUCommandBuffer* commandBuffer)
         false
     ));
 
-    memcpy(dataPtr, sprites.data(), sizeof(SpriteInstance) * sprites.size());
+    SDL_memcpy(dataPtr, sprites.data(), sizeof(SpriteInstance) * sprites.size());
 
     SDL_UnmapGPUTransferBuffer(resourceManager->GetGPUDevice(), transferBuffer);
 
