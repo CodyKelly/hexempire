@@ -8,6 +8,8 @@
 #include <queue>
 #include <unordered_set>
 
+#include <tracy/Tracy.hpp>
+
 AIController::AIController(GameController* controller, unsigned int seed)
     : _controller(controller),
       _combat(&controller->GetCombatSystem())
@@ -25,6 +27,7 @@ AIController::AIController(GameController* controller, unsigned int seed)
 
 bool AIController::TakeAction(PlayerId player)
 {
+    ZoneScoped;
     // Evaluate all possible attacks
     std::vector<AttackEvaluation> attacks = EvaluateAttacks(player);
 
@@ -69,6 +72,7 @@ bool AIController::TakeAction(PlayerId player)
 
 std::vector<AttackEvaluation> AIController::EvaluateAttacks(PlayerId player)
 {
+    ZoneScoped;
     std::vector<AttackEvaluation> evaluations;
     const GameState& state = _controller->GetState();
 
@@ -107,6 +111,7 @@ std::vector<AttackEvaluation> AIController::EvaluateAttacks(PlayerId player)
 
 float AIController::ScoreAttack(const AttackEvaluation& eval, PlayerId player)
 {
+    ZoneScoped;
     const GameState& state = _controller->GetState();
     float score = eval.winProbability;
 
@@ -157,6 +162,7 @@ float AIController::ScoreAttack(const AttackEvaluation& eval, PlayerId player)
 
 bool AIController::WouldConnectRegions(TerritoryId target, PlayerId player)
 {
+    ZoneScoped;
     const GameState& state = _controller->GetState();
     const TerritoryData* territory = state.GetTerritory(target);
     if (!territory) return false;

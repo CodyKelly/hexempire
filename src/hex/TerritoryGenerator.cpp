@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <unordered_set>
 
+#include <tracy/Tracy.hpp>
+
 TerritoryGenerator::TerritoryGenerator(unsigned int seed)
 {
     if (seed == 0)
@@ -22,6 +24,7 @@ TerritoryGenerator::TerritoryGenerator(unsigned int seed)
 
 void TerritoryGenerator::Generate(const HexGrid& grid, GameState& state)
 {
+    ZoneScoped;
     // Clear existing data
     state.territories.clear();
     state.hexToTerritory.clear();
@@ -103,6 +106,7 @@ void TerritoryGenerator::FloodFillTerritories(
     const std::vector<HexCoord>& seeds,
     GameState& state)
 {
+    ZoneScoped;
     // Initialize territories from seeds
     for (size_t i = 0; i < seeds.size(); i++)
     {
@@ -157,6 +161,7 @@ void TerritoryGenerator::CalculateTerritoryNeighbors(
     const HexGrid& grid,
     GameState& state)
 {
+    ZoneScoped;
     // For each territory, find adjacent territories
     for (auto& territory : state.territories)
     {

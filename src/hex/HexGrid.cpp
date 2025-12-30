@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <limits>
 
+#include <tracy/Tracy.hpp>
+
 HexGrid::HexGrid(const HexGridConfig& config)
     : _config(config)
 {
@@ -14,6 +16,7 @@ HexGrid::HexGrid(const HexGridConfig& config)
 
 void HexGrid::GenerateHexagonalGrid()
 {
+    ZoneScoped;
     _coords.clear();
     _validCoords.clear();
 

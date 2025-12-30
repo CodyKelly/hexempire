@@ -4,6 +4,8 @@
 #include "SDL3/SDL_main.h"
 #include "SDL3/SDL.h"
 
+#include <tracy/Tracy.hpp>
+
 #include "src/ResourceManager.h"
 #include "src/SpriteBatch.h"
 #include "src/CameraSystem.h"
@@ -25,20 +27,19 @@ Camera camera;
 CameraController cameraController;
 
 // Game systems
-GameController* gameController = nullptr;
-AIController* aiController = nullptr;
-InputHandler* inputHandler = nullptr;
+GameController *gameController = nullptr;
+AIController *aiController = nullptr;
+InputHandler *inputHandler = nullptr;
 
 // Rendering
-HexMapData* hexMapData = nullptr;
-HexMapRenderer* hexMapRenderer = nullptr;
-DiceRenderer* diceRenderer = nullptr;
+HexMapData *hexMapData = nullptr;
+HexMapRenderer *hexMapRenderer = nullptr;
+DiceRenderer *diceRenderer = nullptr;
 
 // UI state
 UIState uiState;
 
-struct AppState
-{
+struct AppState {
     double deltaTime = 0;
     double totalTime = 0;
     double fps = 0;
@@ -46,8 +47,7 @@ struct AppState
     Vector2 lastMousePos;
 };
 
-struct VertexUniforms
-{
+struct VertexUniforms {
     Matrix4x4 viewProjection;
     float time;
     float pad1, pad2, pad3;
@@ -55,16 +55,15 @@ struct VertexUniforms
 
 AppState appState;
 
-void UpdateTime()
-{
+void UpdateTime() {
+    ZoneScoped;
     static Uint64 lastFrameTime = 0;
     static Uint64 fpsUpdateTime = 0;
     static Uint64 frameCount = 0;
 
     Uint64 currentTime = SDL_GetTicksNS();
 
-    if (lastFrameTime == 0)
-    {
+    if (lastFrameTime == 0) {
         lastFrameTime = currentTime;
         fpsUpdateTime = currentTime;
     }
@@ -75,19 +74,22 @@ void UpdateTime()
     frameCount++;
 
     float timeSinceUpdate = (currentTime - fpsUpdateTime) / 1000000000.0f;
-    if (timeSinceUpdate >= 1.0f)
-    {
+    if (timeSinceUpdate >= 1.0f) {
         appState.fps = frameCount / timeSinceUpdate;
 
-        const GameState& state = gameController->GetState();
-        const char* phaseStr = "";
-        switch (state.phase)
-        {
-            case TurnPhase::SelectAttacker: phaseStr = "Select Attacker"; break;
-            case TurnPhase::SelectTarget: phaseStr = "Select Target"; break;
-            case TurnPhase::AITurn: phaseStr = "AI Thinking..."; break;
-            case TurnPhase::GameOver: phaseStr = "GAME OVER"; break;
-            default: phaseStr = ""; break;
+        const GameState &state = gameController->GetState();
+        const char *phaseStr = "";
+        switch (state.phase) {
+            case TurnPhase::SelectAttacker: phaseStr = "Select Attacker";
+                break;
+            case TurnPhase::SelectTarget: phaseStr = "Select Target";
+                break;
+            case TurnPhase::AITurn: phaseStr = "AI Thinking...";
+                break;
+            case TurnPhase::GameOver: phaseStr = "GAME OVER";
+                break;
+            default: phaseStr = "";
+                break;
         }
 
         char title[256];
@@ -100,8 +102,8 @@ void UpdateTime()
     }
 }
 
-SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
-{
+SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
+    ZoneScoped;
     resourceManager.Init("Hex Empire", 1200, 900, SDL_WINDOW_RESIZABLE);
 
     // Create graphics pipelines
@@ -128,8 +130,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
     // Load texture
     auto texture = resourceManager.CreateTexture("atlas", "./content/textures/atlas.png");
-    if (!texture)
-    {
+    if (!texture) {
         LogError("Failed to load texture atlas");
         return SDL_APP_FAILURE;
     }
@@ -139,13 +140,13 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
     // Configure game
     GameConfig config;
-    config.gridRadius = 8;
+    config.gridRadius = 100;
     config.playerCount = 8;
     config.humanPlayerIndex = 0;
-    config.targetTerritoryCount = 48;
+    config.targetTerritoryCount = 450;
     config.startingDicePerPlayer = 20;
     config.hexSize = 24.0f;
-    config.seed = 0;  // Random seed
+    config.seed = 0; // Random seed
 
     gameController->InitializeGame(config);
 
@@ -154,9 +155,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     gameController->SetAIController(aiController);
 
     // Initialize hex map rendering
-    const HexGrid& grid = gameController->GetGrid();
+    const HexGrid &grid = gameController->GetGrid();
+    const GameState &initialState = gameController->GetState();
     hexMapData = new HexMapData();
     hexMapData->Initialize(grid);
+    hexMapData->UpdateFromTerritories(grid, initialState);
 
     hexMapRenderer = new HexMapRenderer(&resourceManager);
     hexMapRenderer->Initialize(grid.GetHexCount());
@@ -164,12 +167,12 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
     // Initialize dice renderer
     diceRenderer = new DiceRenderer(&resourceManager);
-    diceRenderer->Initialize(1000, texture, sampler);  // Max 1000 dice sprites
+    diceRenderer->Initialize(1000, texture, sampler); // Max 1000 dice sprites
 
     // Initialize camera
     int windowWidth, windowHeight;
     SDL_GetWindowSize(resourceManager.GetWindow(), &windowWidth, &windowHeight);
-    camera = Camera({(float)windowWidth, (float)windowHeight});
+    camera = Camera({(float) windowWidth, (float) windowHeight});
 
     // Center camera on grid
     Vector2 gridCenter = grid.GetWorldCenter();
@@ -177,12 +180,12 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     camera.SetScale({1.0f, 1.0f});
 
     cameraController = CameraController(&camera, {
-        .zoomMin = 0.3f,
-        .zoomMax = 3.0f,
-        .zoomSpeed = 0.1f,
-        .moveSpeed = 500.0f,
-        .smoothing = 8.0f
-    });
+                                            .zoomMin = 0.03f,
+                                            .zoomMax = 30.0f,
+                                            .zoomSpeed = 0.1f,
+                                            .moveSpeed = 500.0f,
+                                            .smoothing = 8.0f
+                                        });
 
     // Initialize input handler
     inputHandler = new InputHandler(gameController, &camera, &uiState);
@@ -201,41 +204,39 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SDL_AppIterate(void* appstate)
-{
+SDL_AppResult SDL_AppIterate(void *appstate) {
+    ZoneScoped;
     UpdateTime();
 
     // Update camera viewport to match window
     int windowWidth, windowHeight;
     SDL_GetWindowSize(resourceManager.GetWindow(), &windowWidth, &windowHeight);
-    camera.SetViewportSize({(float)windowWidth, (float)windowHeight});
+    camera.SetViewportSize({(float) windowWidth, (float) windowHeight});
 
     // Update camera smoothing
-    cameraController.Update((float)appState.deltaTime);
+    cameraController.Update((float) appState.deltaTime);
 
     // Update game logic
-    gameController->Update((float)appState.deltaTime);
+    gameController->Update((float) appState.deltaTime);
 
     // Update rendering data
-    const GameState& state = gameController->GetState();
-    const HexGrid& grid = gameController->GetGrid();
+    const GameState &state = gameController->GetState();
+    const HexGrid &grid = gameController->GetGrid();
 
     hexMapData->UpdateFromGameState(grid, state, uiState);
     diceRenderer->UpdateFromGameState(state, grid);
 
     // Acquire command buffer
-    SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(resourceManager.GetGPUDevice());
+    SDL_GPUCommandBuffer *commandBuffer = SDL_AcquireGPUCommandBuffer(resourceManager.GetGPUDevice());
     if (!commandBuffer) return SDL_APP_FAILURE;
 
-    SDL_GPUTexture* swapchainTexture;
+    SDL_GPUTexture *swapchainTexture;
     if (!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer,
-                                               resourceManager.GetWindow(), &swapchainTexture, nullptr, nullptr))
-    {
+                                               resourceManager.GetWindow(), &swapchainTexture, nullptr, nullptr)) {
         return SDL_APP_FAILURE;
     }
 
-    if (swapchainTexture)
-    {
+    if (swapchainTexture) {
         // Upload data to GPU
         hexMapRenderer->Upload(commandBuffer);
         diceRenderer->Upload(commandBuffer);
@@ -248,12 +249,12 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             .store_op = SDL_GPU_STOREOP_STORE
         };
 
-        SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(commandBuffer, &colorTarget, 1, nullptr);
+        SDL_GPURenderPass *renderPass = SDL_BeginGPURenderPass(commandBuffer, &colorTarget, 1, nullptr);
 
         // Push uniforms
         VertexUniforms uniforms = {
             camera.GetViewProjectionMatrix(),
-            (float)appState.totalTime,
+            (float) appState.totalTime,
             0, 0, 0
         };
 
@@ -274,88 +275,81 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     }
 
     SDL_SubmitGPUCommandBuffer(commandBuffer);
+
+    FrameMark;
     return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
-{
-    switch (event->type)
-    {
-    case SDL_EVENT_QUIT:
-        return SDL_APP_SUCCESS;
+SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
+    switch (event->type) {
+        case SDL_EVENT_QUIT:
+            return SDL_APP_SUCCESS;
 
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
-        // Middle mouse for camera pan
-        if (event->button.button == SDL_BUTTON_MIDDLE)
-        {
-            appState.cameraDragging = true;
-            appState.lastMousePos = {event->button.x, event->button.y};
-        }
-        // Left/right click handled by input handler
-        else
-        {
-            inputHandler->HandleEvent(*event);
-        }
-        break;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            // Middle mouse for camera pan
+            if (event->button.button == SDL_BUTTON_MIDDLE) {
+                appState.cameraDragging = true;
+                appState.lastMousePos = {event->button.x, event->button.y};
+            }
+            // Left/right click handled by input handler
+            else {
+                inputHandler->HandleEvent(*event);
+            }
+            break;
 
-    case SDL_EVENT_MOUSE_BUTTON_UP:
-        if (event->button.button == SDL_BUTTON_MIDDLE)
-        {
-            appState.cameraDragging = false;
-        }
-        else
-        {
-            inputHandler->HandleEvent(*event);
-        }
-        break;
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            if (event->button.button == SDL_BUTTON_MIDDLE) {
+                appState.cameraDragging = false;
+            } else {
+                inputHandler->HandleEvent(*event);
+            }
+            break;
 
-    case SDL_EVENT_MOUSE_MOTION:
-        // Camera pan with middle mouse
-        if (appState.cameraDragging)
-        {
-            Vector2 currentPos = {event->motion.x, event->motion.y};
-            Vector2 delta = appState.lastMousePos - currentPos;
-            cameraController.Pan(delta);
-            appState.lastMousePos = currentPos;
-        }
-        // Update hover state
-        inputHandler->UpdateHover(event->motion.x, event->motion.y);
-        break;
+        case SDL_EVENT_MOUSE_MOTION:
+            // Camera pan with middle mouse
+            if (appState.cameraDragging) {
+                Vector2 currentPos = {event->motion.x, event->motion.y};
+                Vector2 delta = appState.lastMousePos - currentPos;
+                cameraController.Pan(delta);
+                appState.lastMousePos = currentPos;
+            }
+            // Update hover state
+            inputHandler->UpdateHover(event->motion.x, event->motion.y);
+            break;
 
-    case SDL_EVENT_MOUSE_WHEEL:
-        {
+        case SDL_EVENT_MOUSE_WHEEL: {
             float mouseX, mouseY;
             SDL_GetMouseState(&mouseX, &mouseY);
             cameraController.ZoomToPoint(event->wheel.y, {mouseX, mouseY});
         }
         break;
 
-    case SDL_EVENT_KEY_DOWN:
-        inputHandler->HandleEvent(*event);
+        case SDL_EVENT_KEY_DOWN:
+            inputHandler->HandleEvent(*event);
 
-        // R to restart game
-        if (event->key.scancode == SDL_SCANCODE_R)
-        {
-            GameConfig config = gameController->GetState().config;
-            config.seed = 0;  // New random seed
-            gameController->InitializeGame(config);
-            aiController = new AIController(gameController);
-            gameController->SetAIController(aiController);
-            hexMapData->Initialize(gameController->GetGrid());
-            inputHandler->UpdateUIState();
-            SDL_Log("Game restarted");
-        }
-        break;
+            // R to restart game
+            if (event->key.scancode == SDL_SCANCODE_R) {
+                GameConfig config = gameController->GetState().config;
+                config.seed = 0; // New random seed
+                gameController->InitializeGame(config);
+                aiController = new AIController(gameController);
+                gameController->SetAIController(aiController);
+                const HexGrid &restartGrid = gameController->GetGrid();
+                hexMapData->Initialize(restartGrid);
+                hexMapData->UpdateFromTerritories(restartGrid, gameController->GetState());
+                inputHandler->UpdateUIState();
+                SDL_Log("Game restarted");
+            }
+            break;
 
-    default:
-        break;
+        default:
+            break;
     }
 
     return SDL_APP_CONTINUE;
 }
 
-void SDL_AppQuit(void* appstate, SDL_AppResult result)
-{
+void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     delete inputHandler;
     delete aiController;
     delete gameController;

@@ -1,5 +1,7 @@
 #include "CameraSystem.h"
 
+#include <tracy/Tracy.hpp>
+
 Camera::Camera(Vector2 viewportSize)
 {
     _state.viewportSize = viewportSize;
@@ -9,6 +11,7 @@ Camera::Camera(Vector2 viewportSize)
 
 const Matrix4x4& Camera::GetViewProjectionMatrix()
 {
+    ZoneScoped;
     if (_matricesDirty)
     {
         _matrices.viewProjection = Matrix4x4_CreateOrthographicOffCenter(
@@ -130,6 +133,7 @@ void CameraController::ZoomToPoint(float delta, Vector2 screenPoint)
 
 void CameraController::Update(float deltaTime)
 {
+    ZoneScoped;
     if (!_camera) return;
 
     CameraState& state = _camera->GetState();

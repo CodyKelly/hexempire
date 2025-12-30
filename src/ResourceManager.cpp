@@ -12,11 +12,14 @@
 #include <SDL3/SDL.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
 
+#include <tracy/Tracy.hpp>
+
 #include "ResourceManager.h"
 
 
 void ResourceManager::Init(const char* windowTitle, int width, int height, SDL_WindowFlags windowFlags)
 {
+    ZoneScoped;
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
     SDL_ShaderCross_Init();
 
@@ -117,6 +120,7 @@ SDL_GPUGraphicsPipeline* ResourceManager::CreateGraphicsPipeline(
     const ShaderInfo& fragmentShaderInfo
 )
 {
+    ZoneScoped;
     if (pipelines.contains(name))
     {
         throw std::runtime_error("Resource already exists");
@@ -159,6 +163,7 @@ SDL_GPUGraphicsPipeline* ResourceManager::CreateGraphicsPipeline(
 
 SDL_GPUShader* ResourceManager::LoadShader(const ShaderInfo& info) const
 {
+    ZoneScoped;
     if (info.shaderPath == nullptr)
         throw std::runtime_error("LoadShader: Shader path error");
 
@@ -310,6 +315,7 @@ SDL_GPUGraphicsPipeline* ResourceManager::GetGraphicsPipeline(const string& name
 
 SDL_GPUTexture* ResourceManager::CreateTexture(const string& name, const char* pngPath)
 {
+    ZoneScoped;
     SDL_Surface* surface = LoadPNG(pngPath, 4);
     if (!surface)
     {

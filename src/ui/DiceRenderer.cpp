@@ -4,6 +4,8 @@
 
 #include "DiceRenderer.h"
 
+#include <tracy/Tracy.hpp>
+
 DiceRenderer::DiceRenderer(ResourceManager* rm)
     : _resourceManager(rm)
 {
@@ -23,6 +25,7 @@ void DiceRenderer::UpdateFromGameState(
     const GameState& state,
     const HexGrid& grid)
 {
+    ZoneScoped;
     if (!_spriteBatch) return;
 
     _spriteBatch->Clear();
@@ -90,6 +93,7 @@ void DiceRenderer::AddDiceStack(
 
 void DiceRenderer::Upload(SDL_GPUCommandBuffer* cmd)
 {
+    ZoneScoped;
     if (_spriteBatch)
     {
         _spriteBatch->Upload(cmd);
@@ -98,6 +102,7 @@ void DiceRenderer::Upload(SDL_GPUCommandBuffer* cmd)
 
 void DiceRenderer::Draw(SDL_GPURenderPass* pass)
 {
+    ZoneScoped;
     if (_spriteBatch)
     {
         _spriteBatch->Draw(pass);

@@ -14,7 +14,18 @@ set(SDLSHADERCROSS_VENDORED ON)
 add_subdirectory(vendored/SDL EXCLUDE_FROM_ALL)
 add_subdirectory(vendored/SDL_shadercross EXCLUDE_FROM_ALL)
 
+# Tracy Profiler
+option(TRACY_ENABLE "Enable Tracy profiler" ON)
+if(TRACY_ENABLE)
+    add_compile_definitions(TRACY_ENABLE)
+endif()
+
+add_subdirectory(vendored/tracy)
+
 add_executable(atlas main.cpp
+        # Tracy profiler
+        vendored/tracy/public/TracyClient.cpp
+
         # Core engine
         src/ResourceManager.cpp
         src/ResourceManager.h
@@ -53,6 +64,9 @@ add_executable(atlas main.cpp
         src/ui/DiceRenderer.cpp
         src/ui/DiceRenderer.h
 )
+
+# Tracy include directory
+target_include_directories(atlas PRIVATE vendored/tracy/public)
 
 # Link to the actual SDL3 library.
 target_link_libraries(atlas

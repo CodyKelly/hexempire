@@ -5,6 +5,8 @@
 #include "HexMapRenderer.h"
 #include <cstring>
 
+#include <tracy/Tracy.hpp>
+
 HexMapRenderer::HexMapRenderer(ResourceManager* rm)
     : _resourceManager(rm)
 {
@@ -12,6 +14,7 @@ HexMapRenderer::HexMapRenderer(ResourceManager* rm)
 
 void HexMapRenderer::Initialize(size_t maxTileCount)
 {
+    ZoneScoped;
     _maxTileCount = maxTileCount;
 
     // Create GPU buffer for tile data
@@ -33,6 +36,7 @@ void HexMapRenderer::Initialize(size_t maxTileCount)
 
 void HexMapRenderer::Upload(SDL_GPUCommandBuffer* commandBuffer)
 {
+    ZoneScoped;
     if (!_hexMapData) return;
     if (!_hexMapData->IsDirty() && !_isDirty) return;
     if (_hexMapData->GetTiles().empty()) return;
@@ -75,6 +79,7 @@ void HexMapRenderer::Upload(SDL_GPUCommandBuffer* commandBuffer)
 
 void HexMapRenderer::Draw(SDL_GPURenderPass* renderPass)
 {
+    ZoneScoped;
     if (!_hexMapData || _hexMapData->GetTiles().empty()) return;
 
     // Bind hex pipeline

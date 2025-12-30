@@ -40,7 +40,10 @@ public:
     // Initialize tiles from hex grid
     void Initialize(const HexGrid& grid);
 
-    // Update tile data from game state
+    // Update territory colors and borders (call once after territories are generated)
+    void UpdateFromTerritories(const HexGrid& grid, const GameState& state);
+
+    // Update tile data from game state (optimized - only updates changed UI highlights)
     void UpdateFromGameState(
         const HexGrid& grid,
         const GameState& state,
@@ -66,7 +69,15 @@ private:
     float _hexSize = 24.0f;
     bool _isDirty = true;
 
-    // Determine if this hex is on a territory border
+    // Cached UI state to detect changes
+    std::vector<HexCoord> _cachedSelectedHexes;
+    std::vector<HexCoord> _cachedHoverHexes;
+    std::vector<HexCoord> _cachedTargetHexes;
+
+    // Helper to update highlight for a single tile
+    void UpdateTileHighlight(HexTileGPU& tile, uint32_t uiFlags);
+
+    // Determine if this hex is on a territory border (uses neighbor directions directly)
     bool IsOnBorder(
         const HexCoord& coord,
         const HexGrid& grid,

@@ -5,6 +5,8 @@
 #include "CombatSystem.h"
 #include <numeric>
 
+#include <tracy/Tracy.hpp>
+
 CombatSystem::CombatSystem(unsigned int seed)
 {
     if (seed == 0)
@@ -38,6 +40,7 @@ CombatResult CombatSystem::ResolveCombat(
     const TerritoryData& attacker,
     const TerritoryData& defender)
 {
+    ZoneScoped;
     CombatResult result;
     result.attackerId = attacker.id;
     result.defenderId = defender.id;

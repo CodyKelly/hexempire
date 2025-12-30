@@ -8,6 +8,8 @@
 #include <unordered_set>
 #include <algorithm>
 
+#include <tracy/Tracy.hpp>
+
 GameController::GameController()
     : _grid(HexGridConfig{}),
       _generator(0)
@@ -16,6 +18,7 @@ GameController::GameController()
 
 void GameController::InitializeGame(const GameConfig& config)
 {
+    ZoneScoped;
     _state = GameState{};
     _state.config = config;
 
@@ -122,6 +125,7 @@ bool GameController::SelectTerritory(TerritoryId territory)
 
 bool GameController::Attack(TerritoryId target)
 {
+    ZoneScoped;
     if (_state.phase != TurnPhase::SelectTarget &&
         _state.phase != TurnPhase::AITurn)
     {
@@ -174,6 +178,7 @@ void GameController::CancelSelection()
 
 void GameController::EndTurn()
 {
+    ZoneScoped;
     if (_state.phase == TurnPhase::GameOver) return;
 
     // Calculate and distribute reinforcements
@@ -233,6 +238,7 @@ void GameController::UpdateValidTargets()
 
 void GameController::Update(float deltaTime)
 {
+    ZoneScoped;
     // Handle combat animation timer
     if (_state.combatPending)
     {
@@ -313,6 +319,7 @@ void GameController::DistributeReinforcements(PlayerId player, int diceCount)
 
 int GameController::FindLargestContiguousRegion(PlayerId player)
 {
+    ZoneScoped;
     // Get all territories owned by player
     std::vector<TerritoryId> playerTerritories;
     for (const auto& t : _state.territories)

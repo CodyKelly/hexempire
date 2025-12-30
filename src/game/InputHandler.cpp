@@ -4,6 +4,8 @@
 
 #include "InputHandler.h"
 
+#include <tracy/Tracy.hpp>
+
 InputHandler::InputHandler(
     GameController* controller,
     Camera* camera,
@@ -16,6 +18,7 @@ InputHandler::InputHandler(
 
 bool InputHandler::HandleEvent(const SDL_Event& event)
 {
+    ZoneScoped;
     GameState& state = _controller->GetState();
 
     // Don't handle input during AI turn or game over
@@ -152,6 +155,7 @@ void InputHandler::HandleRightClick()
 
 void InputHandler::UpdateHover(float mouseX, float mouseY)
 {
+    ZoneScoped;
     HexCoord hex = ScreenToHex(mouseX, mouseY);
     const HexGrid& grid = _controller->GetGrid();
 

@@ -6,6 +6,8 @@
 
 #include <stdexcept>
 
+#include <tracy/Tracy.hpp>
+
 SpriteBatch::SpriteBatch(string batchName, ResourceManager* rm, Uint32 maxSpriteCount)
     : resourceManager(rm), maxSprites(maxSpriteCount), isDirty(true)
 {
@@ -83,6 +85,7 @@ void SpriteBatch::MarkDirty()
 
 void SpriteBatch::Upload(SDL_GPUCommandBuffer* commandBuffer)
 {
+    ZoneScoped;
     if (!isDirty || sprites.empty()) return;
 
     auto* dataPtr = static_cast<SpriteInstance*>(SDL_MapGPUTransferBuffer(
@@ -119,6 +122,7 @@ void SpriteBatch::SetTexture(SDL_GPUTexture* tex, SDL_GPUSampler* samp)
 
 void SpriteBatch::Draw(SDL_GPURenderPass* renderPass)
 {
+    ZoneScoped;
     if (sprites.empty()) return;
 
     SDL_BindGPUGraphicsPipeline(renderPass,
