@@ -129,9 +129,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     auto sampler = resourceManager.CreateSampler("default", &samplerInfo);
 
     // Load texture
-    auto texture = resourceManager.CreateTexture("atlas", "./content/textures/atlas.png");
+    auto texture = resourceManager.CreateTexture("atlas", "./content/textures/dice.png");
     if (!texture) {
-        LogError("Failed to load texture atlas");
+        LogError("Failed to load dice texture");
         return SDL_APP_FAILURE;
     }
 

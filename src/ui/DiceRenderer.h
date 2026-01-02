@@ -9,40 +9,39 @@
 #include "../game/GameData.h"
 #include "../hex/HexGrid.h"
 
-class DiceRenderer
-{
+class DiceRenderer {
 public:
-    DiceRenderer(ResourceManager* rm);
+    DiceRenderer(ResourceManager *rm);
 
     // Initialize (create sprite batch)
-    void Initialize(size_t maxDice, SDL_GPUTexture* texture, SDL_GPUSampler* sampler);
+    void Initialize(size_t maxDice, SDL_GPUTexture *texture, SDL_GPUSampler *sampler);
 
     // Update sprites from game state
     void UpdateFromGameState(
-        const GameState& state,
-        const HexGrid& grid
+        const GameState &state,
+        const HexGrid &grid
     );
 
     // Upload to GPU
-    void Upload(SDL_GPUCommandBuffer* cmd);
+    void Upload(SDL_GPUCommandBuffer *cmd);
 
     // Draw dice
-    void Draw(SDL_GPURenderPass* pass);
+    void Draw(SDL_GPURenderPass *pass);
 
 private:
-    ResourceManager* _resourceManager;
-    SpriteBatch* _spriteBatch = nullptr;
+    ResourceManager *_resourceManager;
+    SpriteBatch *_spriteBatch = nullptr;
 
     // Dice visual parameters
     static constexpr float DICE_SIZE = 12.0f;
-    static constexpr float DICE_STACK_OFFSET = 6.0f;  // Vertical offset between stacked dice
-    static constexpr float DICE_Z_OFFSET = 0.01f;     // Depth offset per die
+    static constexpr float DICE_STACK_OFFSET = 6.0f; // Vertical offset between stacked dice
+    static constexpr float DICE_Z_OFFSET = 0.01f; // Depth offset per die
 
     // Add dice stack sprites for a territory
     void AddDiceStack(
-        const Vector2& worldPos,
+        const Vector2 &worldPos,
         int diceCount,
-        const PlayerData& owner
+        const PlayerData &owner
     );
 };
 

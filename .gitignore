@@ -135,3 +135,5 @@ http-client.private.env.json
 build/
 
 .DS_Store
+
+/content/textures
