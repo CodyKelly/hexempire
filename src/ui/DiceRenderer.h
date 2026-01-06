@@ -33,8 +33,8 @@ private:
     SpriteBatch *_spriteBatch = nullptr;
 
     // Dice visual parameters
-    static constexpr float DICE_SIZE = 12.0f;
-    static constexpr float DICE_STACK_OFFSET = 6.0f; // Vertical offset between stacked dice
+    static constexpr float DICE_SIZE = 36.0f;
+    static constexpr float DICE_STACK_OFFSET = 20.0f; // Vertical offset between stacked dice
     static constexpr float DICE_Z_OFFSET = 0.01f; // Depth offset per die
 
     // Add dice stack sprites for a territory

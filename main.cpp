@@ -140,11 +140,11 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     // Configure game
     GameConfig config;
-    config.gridRadius = 100;
+    config.gridRadius = 25;
     config.playerCount = 8;
     config.humanPlayerIndex = 0;
-    config.targetTerritoryCount = 450;
-    config.startingDicePerPlayer = 20;
+    config.targetTerritoryCount = 45;
+    config.startingDicePerPlayer = 10;
     config.hexSize = 24.0f;
     config.seed = 0; // Random seed
 
@@ -223,6 +223,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     const GameState &state = gameController->GetState();
     const HexGrid &grid = gameController->GetGrid();
 
+    hexMapData->UpdateFromTerritories(grid, state);  // Sync territory colors
     hexMapData->UpdateFromGameState(grid, state, uiState);
     diceRenderer->UpdateFromGameState(state, grid);
 

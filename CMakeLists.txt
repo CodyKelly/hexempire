@@ -3,6 +3,14 @@ project(atlas)
 
 set(CMAKE_CXX_STANDARD 20)
 
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif ()
+
+set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
 # set the output directory for built objects.
 # This makes sure that the dynamic library goes into the build directory automatically.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
@@ -16,9 +24,9 @@ add_subdirectory(vendored/SDL_shadercross EXCLUDE_FROM_ALL)
 
 # Tracy Profiler
 option(TRACY_ENABLE "Enable Tracy profiler" ON)
-if(TRACY_ENABLE)
+if (TRACY_ENABLE)
     add_compile_definitions(TRACY_ENABLE)
-endif()
+endif ()
 
 add_subdirectory(vendored/tracy)
 

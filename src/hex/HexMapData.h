@@ -30,7 +30,11 @@ struct HexTileGPU
 constexpr uint32_t HEX_FLAG_SELECTED = 1 << 0;
 constexpr uint32_t HEX_FLAG_HOVERED = 1 << 1;
 constexpr uint32_t HEX_FLAG_VALID_TARGET = 1 << 2;
-constexpr uint32_t HEX_FLAG_BORDER = 1 << 3;
+// Bits 4-9: territory border per edge (different territory, same or different owner)
+// Bits 10-15: enemy border per edge (different owner)
+// Edge order matches HEX_DIRECTIONS: East, NE, NW, West, SW, SE
+constexpr uint32_t HEX_BORDER_EDGE_SHIFT = 4;
+constexpr uint32_t HEX_ENEMY_EDGE_SHIFT = 10;
 
 class HexMapData
 {
@@ -76,13 +80,6 @@ private:
 
     // Helper to update highlight for a single tile
     void UpdateTileHighlight(HexTileGPU& tile, uint32_t uiFlags);
-
-    // Determine if this hex is on a territory border (uses neighbor directions directly)
-    bool IsOnBorder(
-        const HexCoord& coord,
-        const HexGrid& grid,
-        const GameState& state
-    ) const;
 };
 
 #endif // ATLAS_HEXMAPDATA_H

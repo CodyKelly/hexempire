@@ -74,7 +74,7 @@ void DiceRenderer::AddDiceStack(
         sprite.tex_h = 1.0f;
 
         // Use player color with some brightness variation for depth
-        float brightness = 1.0f - i * 0.05f; // Slightly darker as stack goes down
+        float brightness = 2.0f; //0.5f + i * 0.1f; // Slightly darker as stack goes down
         sprite.r = owner.colorR * brightness;
         sprite.g = owner.colorG * brightness;
         sprite.b = owner.colorB * brightness;

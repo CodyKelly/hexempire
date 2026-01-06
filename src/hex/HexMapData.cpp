@@ -59,6 +59,7 @@ void HexMapData::UpdateFromTerritories(const HexGrid& grid, const GameState& sta
 
         // Get territory at this hex
         TerritoryId tid = state.GetTerritoryAt(coord);
+        PlayerId owner = PLAYER_NONE;
 
         // Set color based on territory owner
         if (tid != TERRITORY_NONE)
@@ -66,7 +67,8 @@ void HexMapData::UpdateFromTerritories(const HexGrid& grid, const GameState& sta
             const TerritoryData* territory = state.GetTerritory(tid);
             if (territory && territory->owner != PLAYER_NONE)
             {
-                const PlayerData& player = state.GetPlayer(territory->owner);
+                owner = territory->owner;
+                const PlayerData& player = state.GetPlayer(owner);
                 tile.r = player.colorR;
                 tile.g = player.colorG;
                 tile.b = player.colorB;
@@ -90,14 +92,41 @@ void HexMapData::UpdateFromTerritories(const HexGrid& grid, const GameState& sta
             tile.a = 1.0f;
         }
 
-        // Set border flag (static - only changes when territories change)
-        if (IsOnBorder(coord, grid, state))
+        // Calculate per-edge border flags
+        // Clear old border bits (bits 4-15)
+        tile.flags &= 0xF;  // Keep only bits 0-3 (UI flags)
+
+        if (tid != TERRITORY_NONE)
         {
-            tile.flags |= HEX_FLAG_BORDER;
-        }
-        else
-        {
-            tile.flags &= ~HEX_FLAG_BORDER;
+            // Check each of 6 neighbor directions
+            for (int dir = 0; dir < 6; dir++)
+            {
+                HexCoord neighborCoord = coord.Neighbor(dir);
+                TerritoryId neighborTid = state.GetTerritoryAt(neighborCoord);
+
+                // Check if this edge borders a different territory
+                if (neighborTid != tid)
+                {
+                    // Set territory border bit for this edge
+                    tile.flags |= (1 << (HEX_BORDER_EDGE_SHIFT + dir));
+
+                    // Check if it's an enemy border (different owner)
+                    if (neighborTid != TERRITORY_NONE)
+                    {
+                        const TerritoryData* neighborTerritory = state.GetTerritory(neighborTid);
+                        if (neighborTerritory && neighborTerritory->owner != owner)
+                        {
+                            // Set enemy border bit for this edge
+                            tile.flags |= (1 << (HEX_ENEMY_EDGE_SHIFT + dir));
+                        }
+                    }
+                    else
+                    {
+                        // Edge of map - treat as enemy border for visibility
+                        tile.flags |= (1 << (HEX_ENEMY_EDGE_SHIFT + dir));
+                    }
+                }
+            }
         }
     }
 
@@ -106,8 +135,8 @@ void HexMapData::UpdateFromTerritories(const HexGrid& grid, const GameState& sta
 
 void HexMapData::UpdateTileHighlight(HexTileGPU& tile, uint32_t uiFlags)
 {
-    // Preserve border flag, update UI flags
-    tile.flags = (tile.flags & HEX_FLAG_BORDER) | uiFlags;
+    // Preserve border bits (4-15), update UI flags (0-3)
+    tile.flags = (tile.flags & 0xFFF0) | (uiFlags & 0xF);
 
     // Set highlight color based on state
     if (uiFlags & HEX_FLAG_SELECTED)
@@ -212,23 +241,3 @@ void HexMapData::UpdateFromGameState(
     _isDirty = true;
 }
 
-bool HexMapData::IsOnBorder(
-    const HexCoord& coord,
-    const HexGrid& grid,
-    const GameState& state) const
-{
-    TerritoryId myTerritory = state.GetTerritoryAt(coord);
-    if (myTerritory == TERRITORY_NONE) return false;
-
-    // Check if any neighbor belongs to a different territory
-    for (const auto& neighbor : grid.GetNeighbors(coord))
-    {
-        TerritoryId neighborTerritory = state.GetTerritoryAt(neighbor);
-        if (neighborTerritory != myTerritory)
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
