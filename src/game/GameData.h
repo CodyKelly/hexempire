@@ -141,6 +141,9 @@ struct GameState
     bool combatPending = false;
     float combatAnimTimer = 0.0f;
 
+    // Map refresh flag - set when territory ownership changes
+    bool mapNeedsRefresh = false;
+
     // Victory
     PlayerId winner = PLAYER_NONE;
 

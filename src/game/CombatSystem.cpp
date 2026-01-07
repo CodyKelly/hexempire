@@ -85,6 +85,9 @@ void CombatSystem::ApplyCombatResult(GameState& state, const CombatResult& resul
         defender->owner = result.attackerPlayer;
         defender->diceCount = static_cast<uint8_t>(movingDice);
         attacker->diceCount = 1;
+
+        // Territory ownership changed - map needs refresh
+        state.mapNeedsRefresh = true;
     }
     else
     {

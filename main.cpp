@@ -225,7 +225,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     const GameState &state = gameController->GetState();
     const HexGrid &grid = gameController->GetGrid();
 
-    //hexMapData->UpdateFromTerritories(grid, state); // Sync territory colors
+    // Mark hex map dirty if territory ownership changed
+    if (state.mapNeedsRefresh) {
+        hexMapData->MarkDirty();
+        hexMapData->UpdateFromTerritories(grid, state); // Sync territory colors
+        gameController->GetState().mapNeedsRefresh = false;
+    }
+
+
     hexMapData->UpdateFromGameState(grid, state, uiState);
     diceRenderer->UpdateFromGameState(state, grid);
 
