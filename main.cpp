@@ -1,6 +1,8 @@
 #define SDL_MAIN_USE_CALLBACKS
 #define LogError(error) (SDL_LogError(SDL_LOG_CATEGORY_ERROR, error))
 
+#include <chrono>
+
 #include "SDL3/SDL_main.h"
 #include "SDL3/SDL.h"
 
@@ -54,6 +56,11 @@ struct VertexUniforms {
 };
 
 AppState appState;
+
+uint64_t MilSinceEpoch() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).
+            count();
+}
 
 void UpdateTime() {
     ZoneScoped;
@@ -140,14 +147,14 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     // Configure game
     GameConfig config;
-    config.gridRadius = 50;
+    config.gridRadius = 20;
     config.playerCount = 8;
     config.humanPlayerIndex = 0;
     config.targetTerritoryCount = 45;
-    config.startingDicePerPlayer = 20;
+    config.startingDicePerPlayer = 12;
     config.hexSize = 24.0f;
-    config.seed = 0; // Random seed
-    config.fillHoles = true;
+    config.seed = MilSinceEpoch(); // Random seed
+    config.fillHoles = false;
     config.keepLargestIslandOnly = true;
 
     gameController->InitializeGame(config);
@@ -340,7 +347,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             // R to restart game
             if (event->key.scancode == SDL_SCANCODE_R) {
                 GameConfig config = gameController->GetState().config;
-                config.seed = 0; // New random seed
+                config.seed = MilSinceEpoch(); // New random seed
                 gameController->InitializeGame(config);
                 aiController = new AIController(gameController);
                 gameController->SetAIController(aiController);

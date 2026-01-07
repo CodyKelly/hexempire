@@ -22,20 +22,21 @@ constexpr int MAX_PLAYERS = 8;
 constexpr int MAX_DICE_PER_TERRITORY = 8;
 
 // Player colors (distinct, colorblind-friendly palette)
-constexpr std::array<std::array<float, 3>, MAX_PLAYERS> PLAYER_COLORS = {{
-    {0.90f, 0.30f, 0.30f},  // Player 0: Red
-    {0.30f, 0.60f, 0.90f},  // Player 1: Blue
-    {0.30f, 0.80f, 0.40f},  // Player 2: Green
-    {0.95f, 0.75f, 0.20f},  // Player 3: Yellow
-    {0.70f, 0.40f, 0.80f},  // Player 4: Purple
-    {0.95f, 0.55f, 0.25f},  // Player 5: Orange
-    {0.50f, 0.80f, 0.85f},  // Player 6: Cyan
-    {0.85f, 0.50f, 0.70f}   // Player 7: Pink
-}};
+constexpr std::array<std::array<float, 3>, MAX_PLAYERS> PLAYER_COLORS = {
+    {
+        {0.90f, 0.30f, 0.30f}, // Player 0: Red
+        {0.30f, 0.60f, 0.90f}, // Player 1: Blue
+        {0.30f, 0.80f, 0.40f}, // Player 2: Green
+        {0.95f, 0.75f, 0.20f}, // Player 3: Yellow
+        {0.70f, 0.40f, 0.80f}, // Player 4: Purple
+        {0.95f, 0.55f, 0.25f}, // Player 5: Orange
+        {0.50f, 0.80f, 0.85f}, // Player 6: Cyan
+        {0.85f, 0.50f, 0.70f} // Player 7: Pink
+    }
+};
 
 // Player data
-struct PlayerData
-{
+struct PlayerData {
     PlayerId id = PLAYER_NONE;
     bool isHuman = false;
     bool isEliminated = false;
@@ -44,10 +45,8 @@ struct PlayerData
     float colorB = 0.5f;
     std::string name;
 
-    void SetColorFromPalette()
-    {
-        if (id < MAX_PLAYERS)
-        {
+    void SetColorFromPalette() {
+        if (id < MAX_PLAYERS) {
             colorR = PLAYER_COLORS[id][0];
             colorG = PLAYER_COLORS[id][1];
             colorB = PLAYER_COLORS[id][2];
@@ -56,8 +55,7 @@ struct PlayerData
 };
 
 // Territory data (a contiguous group of hexes)
-struct TerritoryData
-{
+struct TerritoryData {
     TerritoryId id = TERRITORY_NONE;
     PlayerId owner = PLAYER_NONE;
     uint8_t diceCount = 1;
@@ -70,8 +68,7 @@ struct TerritoryData
 };
 
 // Combat result for display/animation
-struct CombatResult
-{
+struct CombatResult {
     TerritoryId attackerId = TERRITORY_NONE;
     TerritoryId defenderId = TERRITORY_NONE;
     PlayerId attackerPlayer = PLAYER_NONE;
@@ -84,38 +81,35 @@ struct CombatResult
 };
 
 // Turn phases
-enum class TurnPhase
-{
-    SelectAttacker,     // Human selecting territory to attack from
-    SelectTarget,       // Human selecting target territory
-    Resolving,          // Combat animation/resolution in progress
-    AITurn,             // AI player making decisions
-    Reinforcement,      // End-of-turn dice distribution
-    GameOver            // Victory condition met
+enum class TurnPhase {
+    SelectAttacker, // Human selecting territory to attack from
+    SelectTarget, // Human selecting target territory
+    Resolving, // Combat animation/resolution in progress
+    AITurn, // AI player making decisions
+    Reinforcement, // End-of-turn dice distribution
+    GameOver // Victory condition met
 };
 
 // Game configuration
-struct GameConfig
-{
-    int gridRadius = 8;                 // Hex grid radius
-    int playerCount = 8;                // Number of players (2-8)
-    int humanPlayerIndex = 0;           // Which player is human
-    int targetTerritoryCount = 48;      // Target number of territories
-    int minTerritorySize = 3;           // Minimum hexes per territory
-    int maxTerritorySize = 12;          // Maximum hexes per territory
-    int startingDicePerPlayer = 20;     // Initial dice to distribute
-    float hexSize = 24.0f;              // Hex size in world units
-    unsigned int seed = 0;              // Random seed (0 = random)
+struct GameConfig {
+    int gridRadius = 8; // Hex grid radius
+    int playerCount = 8; // Number of players (2-8)
+    int humanPlayerIndex = 0; // Which player is human
+    int targetTerritoryCount = 48; // Target number of territories
+    int minTerritorySize = 3; // Minimum hexes per territory
+    int maxTerritorySize = 12; // Maximum hexes per territory
+    int startingDicePerPlayer = 20; // Initial dice to distribute
+    float hexSize = 24.0f; // Hex size in world units
+    unsigned int seed = 0; // Random seed (0 = random)
 
     // Post-processing options
-    bool fillHoles = true;              // Fill small unassigned hex groups after territory generation
-    int minHoleSize = 4;                // Holes smaller than this get absorbed by neighbors
+    bool fillHoles = false; // Fill small unassigned hex groups after territory generation
+    int minHoleSize = 4; // Holes smaller than this get absorbed by neighbors
     bool keepLargestIslandOnly = false; // Remove all territory islands except the largest
 };
 
 // Complete game state
-struct GameState
-{
+struct GameState {
     // Configuration
     GameConfig config;
 
@@ -150,54 +144,45 @@ struct GameState
     // Helper methods
     [[nodiscard]] bool IsGameOver() const { return winner != PLAYER_NONE; }
 
-    [[nodiscard]] bool IsHumanTurn() const
-    {
+    [[nodiscard]] bool IsHumanTurn() const {
         return currentPlayer < MAX_PLAYERS &&
                players[currentPlayer].isHuman &&
                !players[currentPlayer].isEliminated;
     }
 
-    [[nodiscard]] TerritoryData* GetTerritory(TerritoryId id)
-    {
+    [[nodiscard]] TerritoryData *GetTerritory(TerritoryId id) {
         if (id < territories.size()) return &territories[id];
         return nullptr;
     }
 
-    [[nodiscard]] const TerritoryData* GetTerritory(TerritoryId id) const
-    {
+    [[nodiscard]] const TerritoryData *GetTerritory(TerritoryId id) const {
         if (id < territories.size()) return &territories[id];
         return nullptr;
     }
 
-    [[nodiscard]] TerritoryId GetTerritoryAt(const HexCoord& coord) const
-    {
+    [[nodiscard]] TerritoryId GetTerritoryAt(const HexCoord &coord) const {
         auto it = hexToTerritory.find(coord);
         if (it != hexToTerritory.end()) return it->second;
         return TERRITORY_NONE;
     }
 
-    [[nodiscard]] const PlayerData& GetPlayer(PlayerId id) const
-    {
+    [[nodiscard]] const PlayerData &GetPlayer(PlayerId id) const {
         static PlayerData nullPlayer;
         if (id < MAX_PLAYERS) return players[id];
         return nullPlayer;
     }
 
-    [[nodiscard]] int CountTerritoriesOwned(PlayerId player) const
-    {
+    [[nodiscard]] int CountTerritoriesOwned(PlayerId player) const {
         int count = 0;
-        for (const auto& t : territories)
-        {
+        for (const auto &t: territories) {
             if (t.owner == player) count++;
         }
         return count;
     }
 
-    [[nodiscard]] int CountDiceOwned(PlayerId player) const
-    {
+    [[nodiscard]] int CountDiceOwned(PlayerId player) const {
         int count = 0;
-        for (const auto& t : territories)
-        {
+        for (const auto &t: territories) {
             if (t.owner == player) count += t.diceCount;
         }
         return count;
@@ -205,8 +190,7 @@ struct GameState
 };
 
 // UI state (separate from game state for clean separation)
-struct UIState
-{
+struct UIState {
     // Hover
     HexCoord hoveredHex;
     TerritoryId hoveredTerritory = TERRITORY_NONE;
