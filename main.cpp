@@ -147,7 +147,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     // Configure game
     GameConfig config;
-    config.gridRadius = 20;
+    config.gridWidth = 50;   // 16:9 ratio (accounting for hex geometry)
+    config.gridHeight = 32;
     config.playerCount = 8;
     config.humanPlayerIndex = 0;
     config.targetTerritoryCount = 45;

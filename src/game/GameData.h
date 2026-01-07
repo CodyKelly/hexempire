@@ -92,7 +92,8 @@ enum class TurnPhase {
 
 // Game configuration
 struct GameConfig {
-    int gridRadius = 8; // Hex grid radius
+    int gridWidth = 50;  // Hex grid width in columns
+    int gridHeight = 32; // Hex grid height in rows (16:9 aspect ratio accounting for hex geometry)
     int playerCount = 8; // Number of players (2-8)
     int humanPlayerIndex = 0; // Which player is human
     int targetTerritoryCount = 48; // Target number of territories

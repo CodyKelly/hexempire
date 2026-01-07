@@ -22,7 +22,8 @@ void GameController::InitializeGame(const GameConfig &config) {
 
     // Initialize hex grid
     HexGridConfig gridConfig;
-    gridConfig.radius = config.gridRadius;
+    gridConfig.width = config.gridWidth;
+    gridConfig.height = config.gridHeight;
     gridConfig.hexSize = config.hexSize;
     gridConfig.noiseSeed = config.seed;
     _grid = HexGrid(gridConfig);

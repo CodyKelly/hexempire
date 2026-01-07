@@ -10,7 +10,8 @@
 #include <unordered_set>
 
 struct HexGridConfig {
-    int radius = 10; // Grid radius (creates hexagonal-shaped grid)
+    int width = 32;  // Grid width in hexes (columns)
+    int height = 18; // Grid height in hexes (rows) - 16:9 ratio accounts for hex geometry
     float hexSize = 32.0f; // Outer radius of each hex in world units
 
     // Noise-based landmass generation
@@ -46,7 +47,8 @@ public:
     // Get configuration
     [[nodiscard]] const HexGridConfig &GetConfig() const { return _config; }
     [[nodiscard]] float GetHexSize() const { return _config.hexSize; }
-    [[nodiscard]] int GetRadius() const { return _config.radius; }
+    [[nodiscard]] int GetWidth() const { return _config.width; }
+    [[nodiscard]] int GetHeight() const { return _config.height; }
 
     // Get world bounds (for camera)
     [[nodiscard]] Vector2 GetWorldMin() const;
@@ -60,7 +62,7 @@ private:
     std::vector<HexCoord> _coords;
     std::unordered_set<HexCoord, HexCoordHash> _validCoords;
 
-    void GenerateHexagonalGrid();
+    void GenerateRectangularGrid();
 };
 
 #endif // ATLAS_HEXGRID_H

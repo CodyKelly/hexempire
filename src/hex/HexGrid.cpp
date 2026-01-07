@@ -13,10 +13,10 @@
 HexGrid::HexGrid(const HexGridConfig& config)
     : _config(config)
 {
-    GenerateHexagonalGrid();
+    GenerateRectangularGrid();
 }
 
-void HexGrid::GenerateHexagonalGrid()
+void HexGrid::GenerateRectangularGrid()
 {
     ZoneScoped;
     _coords.clear();
@@ -29,14 +29,19 @@ void HexGrid::GenerateHexagonalGrid()
         noise.emplace(_config.noiseSeed);
     }
 
-    // Generate hexagonal-shaped grid using cube coordinates constraint
-    // A hex is valid if |x| + |y| + |z| <= radius * 2, where x + y + z = 0
-    for (int q = -_config.radius; q <= _config.radius; q++)
+    // Generate rectangular grid using offset coordinates (odd-r offset)
+    // For pointy-top hexes, odd rows are shifted right by half a hex width
+    for (int row = 0; row < _config.height; row++)
     {
-        int r1 = std::max(-_config.radius, -q - _config.radius);
-        int r2 = std::min(_config.radius, -q + _config.radius);
-        for (int r = r1; r <= r2; r++)
+        // Calculate q offset for this row to create rectangular shape
+        // Odd rows need adjustment due to the staggered hex layout
+        int qOffset = row / 2;
+
+        for (int col = 0; col < _config.width; col++)
         {
+            // Convert offset coordinates to axial coordinates
+            int q = col - qOffset;
+            int r = row;
             HexCoord coord{q, r};
 
             // Apply Perlin noise filter if enabled
