@@ -168,7 +168,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     const HexGrid &grid = gameController->GetGrid();
     const GameState &initialState = gameController->GetState();
     hexMapData = new HexMapData();
-    hexMapData->Initialize(grid);
+    hexMapData->Initialize(grid, initialState);
     hexMapData->UpdateFromTerritories(grid, initialState);
 
     hexMapRenderer = new HexMapRenderer(&resourceManager);
@@ -184,11 +184,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     SDL_GetWindowSize(resourceManager.GetWindow(), &windowWidth, &windowHeight);
     camera = Camera({(float) windowWidth, (float) windowHeight});
 
-    // Center camera on grid
-    Vector2 gridCenter = grid.GetWorldCenter();
-    camera.SetPosition(gridCenter);
-    camera.SetScale({1.0f, 1.0f});
-
     cameraController = CameraController(&camera, {
                                             .zoomMin = 0.03f,
                                             .zoomMax = 30.0f,
@@ -196,6 +191,12 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
                                             .moveSpeed = 500.0f,
                                             .smoothing = 8.0f
                                         });
+
+    // Set world bounds from grid and fit camera to map
+    Vector2 gridMin = grid.GetWorldMin();
+    Vector2 gridMax = grid.GetWorldMax();
+    cameraController.SetWorldBounds(gridMin, gridMax);
+    cameraController.FitToBounds();
 
     // Initialize input handler
     inputHandler = new InputHandler(gameController, &camera, &uiState);
@@ -353,8 +354,10 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 aiController = new AIController(gameController);
                 gameController->SetAIController(aiController);
                 const HexGrid &restartGrid = gameController->GetGrid();
-                hexMapData->Initialize(restartGrid);
-                hexMapData->UpdateFromTerritories(restartGrid, gameController->GetState());
+                const GameState &restartState = gameController->GetState();
+                hexMapData->Initialize(restartGrid, restartState);
+                hexMapData->UpdateFromTerritories(restartGrid, restartState);
+                diceRenderer->UpdateFromGameState(restartState, restartGrid);
                 inputHandler->UpdateUIState();
                 SDL_Log("Game restarted");
             }

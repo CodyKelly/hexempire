@@ -102,7 +102,10 @@ void CameraController::Zoom(float delta)
 
     Vector2 currentScale = _camera->GetState().target.scale;
     float newZoom = currentScale.x * (1.0f - delta * _config.zoomSpeed);
-    newZoom = SDL_clamp(newZoom, _config.zoomMin, _config.zoomMax);
+
+    // Enforce minimum zoom based on world bounds
+    float minZoom = _bounds.enabled ? CalculateMinZoomForBounds() : _config.zoomMin;
+    newZoom = SDL_clamp(newZoom, minZoom, _config.zoomMax);
 
     _camera->SetTargetScale({newZoom, newZoom});
 }
@@ -138,6 +141,12 @@ void CameraController::Update(float deltaTime)
 
     CameraState& state = _camera->GetState();
 
+    // Clamp target position to world bounds
+    if (_bounds.enabled)
+    {
+        state.target.position = ClampPosition(state.target.position, state.target.scale);
+    }
+
     // Smoothly interpolate toward target
     float t = 1.0f - SDL_expf(-_config.smoothing * deltaTime);
 
@@ -153,6 +162,17 @@ void CameraController::Update(float deltaTime)
     {
         state.current.scale = Vector2::Lerp(state.current.scale, state.target.scale, t);
         changed = true;
+    }
+
+    // Clamp current position to world bounds (in case scale changed)
+    if (_bounds.enabled)
+    {
+        Vector2 clampedPos = ClampPosition(state.current.position, state.current.scale);
+        if (clampedPos != state.current.position)
+        {
+            state.current.position = clampedPos;
+            changed = true;
+        }
     }
 
     if (changed)
@@ -180,4 +200,74 @@ void CameraController::Follow(Vector2 worldPosition, float deltaTime)
 
     _camera->SetTargetPosition(targetPos);
     Update(deltaTime);
+}
+
+void CameraController::SetWorldBounds(Vector2 min, Vector2 max)
+{
+    _bounds.min = min;
+    _bounds.max = max;
+    _bounds.enabled = true;
+}
+
+float CameraController::CalculateMinZoomForBounds() const
+{
+    if (!_camera || !_bounds.enabled) return _config.zoomMin;
+
+    Vector2 worldSize = _bounds.max - _bounds.min;
+    Vector2 viewport = _camera->GetViewportSize();
+
+    // Calculate zoom needed to fit world bounds in viewport
+    // scale = worldSize / viewportSize, so we need the larger of the two ratios
+    float zoomX = worldSize.x / viewport.x;
+    float zoomY = worldSize.y / viewport.y;
+
+    return SDL_max(zoomX, zoomY);
+}
+
+Vector2 CameraController::ClampPosition(Vector2 position, Vector2 scale) const
+{
+    if (!_camera || !_bounds.enabled) return position;
+
+    Vector2 viewport = _camera->GetViewportSize();
+    Vector2 viewSize = viewport.Scale(scale);
+
+    Vector2 worldSize = _bounds.max - _bounds.min;
+
+    // If view is larger than world, center on world
+    if (viewSize.x >= worldSize.x)
+    {
+        position.x = _bounds.min.x + (worldSize.x - viewSize.x) * 0.5f;
+    }
+    else
+    {
+        // Clamp so view stays within world bounds
+        position.x = SDL_clamp(position.x, _bounds.min.x, _bounds.max.x - viewSize.x);
+    }
+
+    if (viewSize.y >= worldSize.y)
+    {
+        position.y = _bounds.min.y + (worldSize.y - viewSize.y) * 0.5f;
+    }
+    else
+    {
+        position.y = SDL_clamp(position.y, _bounds.min.y, _bounds.max.y - viewSize.y);
+    }
+
+    return position;
+}
+
+void CameraController::FitToBounds()
+{
+    if (!_camera || !_bounds.enabled) return;
+
+    // Calculate zoom to fit map in screen
+    float minZoom = CalculateMinZoomForBounds();
+    _camera->SetScale({minZoom, minZoom});
+
+    // Center on the map
+    Vector2 worldCenter = (_bounds.min + _bounds.max) * 0.5f;
+    Vector2 viewSize = _camera->GetViewportSize().Scale(_camera->GetScale());
+    Vector2 position = worldCenter - viewSize * 0.5f;
+
+    _camera->SetPosition(position);
 }

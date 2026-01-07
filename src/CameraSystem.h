@@ -13,6 +13,14 @@ struct CameraConfig
     float smoothing = 5.0f; // For lerp-based smoothing
 };
 
+// World bounds for camera clamping
+struct CameraBounds
+{
+    Vector2 min{0, 0};
+    Vector2 max{0, 0};
+    bool enabled = false;
+};
+
 struct CameraState
 {
     Transform current;
@@ -66,6 +74,13 @@ class CameraController
 private:
     Camera* _camera;
     CameraConfig _config;
+    CameraBounds _bounds;
+
+    // Clamp position so world bounds stay within view
+    Vector2 ClampPosition(Vector2 position, Vector2 scale) const;
+
+    // Calculate minimum zoom to fit world bounds in viewport
+    float CalculateMinZoomForBounds() const;
 
 public:
     CameraController() : _camera(nullptr)
@@ -77,6 +92,13 @@ public:
     void SetCamera(Camera* camera) { _camera = camera; }
     void SetConfig(const CameraConfig& config) { _config = config; }
     const CameraConfig& GetConfig() const { return _config; }
+
+    // Set world bounds for camera clamping
+    void SetWorldBounds(Vector2 min, Vector2 max);
+    const CameraBounds& GetBounds() const { return _bounds; }
+
+    // Fit and center camera on world bounds
+    void FitToBounds();
 
     void Pan(Vector2 delta);
     void Zoom(float delta);
