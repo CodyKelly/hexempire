@@ -36,6 +36,8 @@ private:
     static constexpr float DICE_SIZE = 36.0f;
     static constexpr float DICE_STACK_OFFSET = 20.0f; // Vertical offset between stacked dice
     static constexpr float DICE_Z_OFFSET = 0.01f; // Depth offset per die
+    static constexpr float DICE_STACK_MARGIN = 15.0f; // Space around each dice stack
+    static constexpr uint32_t MAX_DICE_PER_STACK = 8;
 
     // Add dice stack sprites for a territory
     void AddDiceStack(

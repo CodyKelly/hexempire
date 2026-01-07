@@ -49,14 +49,17 @@ void DiceRenderer::AddDiceStack(
     const PlayerData &owner) {
     // Stack dice vertically with slight offset
     // Start from bottom, go up
-    float startY = worldPos.y + (diceCount - 1) * DICE_STACK_OFFSET * 0.5f;
+    float startY = worldPos.y; // + (diceCount - 1) * DICE_STACK_OFFSET * 0.5f;
+    int numStacks = diceCount / MAX_DICE_PER_STACK + 1;
+    float startX = worldPos.x - numStacks / 2 * DICE_STACK_MARGIN - (numStacks % 2 == 0 ? DICE_STACK_MARGIN / 2 : 0.0f);
 
     for (int i = 0; i < diceCount; i++) {
         SpriteInstance sprite{};
 
         // Position: center on territory, stack upward
-        sprite.x = worldPos.x - DICE_SIZE * 0.5f;
-        sprite.y = startY - i * DICE_STACK_OFFSET;
+        float thing = (i / MAX_DICE_PER_STACK) * DICE_STACK_MARGIN * 2;
+        sprite.x = startX + thing - DICE_SIZE * 0.5f;
+        sprite.y = startY - i % MAX_DICE_PER_STACK * DICE_STACK_OFFSET;
         sprite.z = 0.1f + i * DICE_Z_OFFSET; // Depth for proper ordering
 
         sprite.rotation = 0.0f;
