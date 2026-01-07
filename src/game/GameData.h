@@ -106,6 +106,11 @@ struct GameConfig
     int startingDicePerPlayer = 20;     // Initial dice to distribute
     float hexSize = 24.0f;              // Hex size in world units
     unsigned int seed = 0;              // Random seed (0 = random)
+
+    // Post-processing options
+    bool fillHoles = true;              // Fill small unassigned hex groups after territory generation
+    int minHoleSize = 4;                // Holes smaller than this get absorbed by neighbors
+    bool keepLargestIslandOnly = false; // Remove all territory islands except the largest
 };
 
 // Complete game state

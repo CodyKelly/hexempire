@@ -56,6 +56,8 @@ add_executable(atlas main.cpp
         src/hex/HexMapRenderer.h
         src/hex/TerritoryGenerator.cpp
         src/hex/TerritoryGenerator.h
+        src/hex/IslandDetector.cpp
+        src/hex/IslandDetector.h
 
         # Game logic
         src/game/GameData.h

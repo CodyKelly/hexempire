@@ -3,6 +3,7 @@
 //
 
 #include "TerritoryGenerator.h"
+#include "IslandDetector.h"
 #include <queue>
 #include <algorithm>
 #include <unordered_set>
@@ -35,8 +36,22 @@ void TerritoryGenerator::Generate(const HexGrid& grid, GameState& state)
     // Create territories via flood fill
     FloodFillTerritories(grid, seeds, state);
 
+    // Fill small holes (unassigned hex groups) by absorbing into neighbors
+    if (state.config.fillHoles)
+    {
+        FillHoles(grid, state, state.config.minHoleSize);
+    }
+
     // Calculate adjacency
     CalculateTerritoryNeighbors(grid, state);
+
+    // Remove all islands except the largest if configured
+    if (state.config.keepLargestIslandOnly)
+    {
+        IslandDetector::KeepLargestIslandOnly(state);
+        // Recalculate neighbors since territories were removed and IDs remapped
+        CalculateTerritoryNeighbors(grid, state);
+    }
 
     // Find center of each territory
     for (auto& territory : state.territories)
@@ -153,6 +168,96 @@ void TerritoryGenerator::FloodFillTerritories(
                 int jitter = std::uniform_int_distribution<>(0, 2)(_rng);
                 pq.push({dist + 1 + jitter, neighbor, territoryId});
             }
+        }
+    }
+}
+
+void TerritoryGenerator::FillHoles(
+    const HexGrid& grid,
+    GameState& state,
+    int minHoleSize)
+{
+    ZoneScoped;
+
+    // 1. Find all unassigned hexes
+    std::unordered_set<HexCoord, HexCoordHash> unassigned;
+    for (const auto& coord : grid.GetAllCoords())
+    {
+        if (state.hexToTerritory.find(coord) == state.hexToTerritory.end())
+        {
+            unassigned.insert(coord);
+        }
+    }
+
+    if (unassigned.empty()) return;
+
+    // 2. Group unassigned hexes into connected components (holes) via BFS
+    std::vector<std::vector<HexCoord>> holes;
+
+    while (!unassigned.empty())
+    {
+        std::vector<HexCoord> hole;
+        std::queue<HexCoord> toVisit;
+
+        // Start with first unassigned hex
+        HexCoord start = *unassigned.begin();
+        toVisit.push(start);
+        unassigned.erase(start);
+
+        while (!toVisit.empty())
+        {
+            HexCoord current = toVisit.front();
+            toVisit.pop();
+            hole.push_back(current);
+
+            // Check neighbors
+            for (const auto& neighbor : grid.GetNeighbors(current))
+            {
+                if (unassigned.find(neighbor) != unassigned.end())
+                {
+                    unassigned.erase(neighbor);
+                    toVisit.push(neighbor);
+                }
+            }
+        }
+
+        holes.push_back(std::move(hole));
+    }
+
+    // 3. Fill small holes by assigning to neighboring territory
+    for (const auto& hole : holes)
+    {
+        if (static_cast<int>(hole.size()) >= minHoleSize)
+        {
+            continue; // Keep large holes as unassigned (water/void)
+        }
+
+        // Find a neighboring territory to absorb this hole
+        TerritoryId newOwner = TERRITORY_NONE;
+        for (const auto& coord : hole)
+        {
+            for (const auto& neighbor : grid.GetNeighbors(coord))
+            {
+                TerritoryId tid = state.GetTerritoryAt(neighbor);
+                if (tid != TERRITORY_NONE)
+                {
+                    newOwner = tid;
+                    break;
+                }
+            }
+            if (newOwner != TERRITORY_NONE) break;
+        }
+
+        if (newOwner == TERRITORY_NONE)
+        {
+            continue; // Isolated hole with no neighbors, keep unassigned
+        }
+
+        // Assign all hole hexes to the neighboring territory
+        for (const auto& coord : hole)
+        {
+            state.territories[newOwner].hexes.push_back(coord);
+            state.hexToTerritory[coord] = newOwner;
         }
     }
 }

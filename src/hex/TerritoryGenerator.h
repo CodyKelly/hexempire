@@ -36,6 +36,13 @@ private:
         GameState& state
     );
 
+    // Fill small unassigned hex groups by absorbing them into neighboring territories
+    void FillHoles(
+        const HexGrid& grid,
+        GameState& state,
+        int minHoleSize
+    );
+
     // Calculate which territories are adjacent
     void CalculateTerritoryNeighbors(
         const HexGrid& grid,

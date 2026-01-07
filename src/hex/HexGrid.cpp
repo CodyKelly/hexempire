@@ -3,8 +3,10 @@
 //
 
 #include "HexGrid.h"
+#include "../PerlinNoise.hpp"
 #include <algorithm>
 #include <limits>
+#include <optional>
 
 #include <tracy/Tracy.hpp>
 
@@ -20,6 +22,13 @@ void HexGrid::GenerateHexagonalGrid()
     _coords.clear();
     _validCoords.clear();
 
+    // Create noise generator if filtering is enabled
+    std::optional<siv::PerlinNoise> noise;
+    if (_config.useNoiseFilter)
+    {
+        noise.emplace(_config.noiseSeed);
+    }
+
     // Generate hexagonal-shaped grid using cube coordinates constraint
     // A hex is valid if |x| + |y| + |z| <= radius * 2, where x + y + z = 0
     for (int q = -_config.radius; q <= _config.radius; q++)
@@ -29,6 +38,22 @@ void HexGrid::GenerateHexagonalGrid()
         for (int r = r1; r <= r2; r++)
         {
             HexCoord coord{q, r};
+
+            // Apply Perlin noise filter if enabled
+            if (noise.has_value())
+            {
+                Vector2 worldPos = HexGeometry::HexToWorld(coord, _config.hexSize);
+                float sampleX = (worldPos.x + _config.noiseOffsetX) * _config.noiseScale;
+                float sampleY = (worldPos.y + _config.noiseOffsetY) * _config.noiseScale;
+                float noiseValue = static_cast<float>(noise->noise2D_01(sampleX, sampleY));
+
+                // Skip hex if noise value exceeds cutoff (becomes "water")
+                if (noiseValue > _config.noiseCutoff)
+                {
+                    continue;
+                }
+            }
+
             _coords.push_back(coord);
             _validCoords.insert(coord);
         }
