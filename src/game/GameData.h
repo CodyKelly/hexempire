@@ -10,6 +10,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <algorithm>
 
 // Type aliases for clarity
 using PlayerId = uint8_t;
@@ -80,6 +81,50 @@ struct CombatResult {
     bool attackerWins = false;
 };
 
+// Attack history entry for tracking inter-player aggression
+struct AttackHistoryEntry {
+    PlayerId attacker = PLAYER_NONE;
+    PlayerId defender = PLAYER_NONE;
+    int turnNumber = 0;
+    bool wasSuccessful = false;
+};
+
+// Attack history tracking for retribution/honor system
+struct AttackHistory {
+    std::vector<AttackHistoryEntry> entries;
+    static constexpr int MEMORY_TURNS = 5;  // How many turns back to remember
+
+    void RecordAttack(PlayerId attacker, PlayerId defender, int turn, bool success) {
+        entries.push_back({attacker, defender, turn, success});
+    }
+
+    void PruneOldEntries(int currentTurn) {
+        entries.erase(
+            std::remove_if(entries.begin(), entries.end(),
+                [currentTurn](const AttackHistoryEntry& e) {
+                    return currentTurn - e.turnNumber > MEMORY_TURNS;
+                }),
+            entries.end());
+    }
+
+    // Count attacks from one player against another in recent memory
+    int CountAttacksFrom(PlayerId attacker, PlayerId defender, int currentTurn) const {
+        int count = 0;
+        for (const auto& e : entries) {
+            if (e.attacker == attacker && e.defender == defender &&
+                currentTurn - e.turnNumber <= MEMORY_TURNS) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // Check if a player has been peaceful toward another
+    bool HasBeenPeaceful(PlayerId player, PlayerId toward, int currentTurn) const {
+        return CountAttacksFrom(player, toward, currentTurn) == 0;
+    }
+};
+
 // Turn phases
 enum class TurnPhase {
     SelectAttacker, // Human selecting territory to attack from
@@ -135,6 +180,9 @@ struct GameState {
     CombatResult lastCombat;
     bool combatPending = false;
     float combatAnimTimer = 0.0f;
+
+    // Attack history for AI retribution/honor system
+    AttackHistory attackHistory;
 
     // Map refresh flag - set when territory ownership changes
     bool mapNeedsRefresh = false;

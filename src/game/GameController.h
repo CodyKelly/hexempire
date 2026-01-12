@@ -58,7 +58,7 @@ private:
 
     // AI timing
     float _aiThinkTimer = 0.0f;
-    static constexpr float AI_THINK_DELAY = 0.5f;  // Delay between AI actions
+    static constexpr float AI_THINK_DELAY = 0.1f;  // Delay between AI actions
 
     // Turn flow
     void StartTurn(PlayerId player);

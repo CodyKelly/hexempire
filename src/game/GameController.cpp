@@ -137,6 +137,14 @@ bool GameController::Attack(TerritoryId target) {
     CombatResult result = _combat.ResolveCombat(*attacker, *defender);
     _combat.ApplyCombatResult(_state, result);
 
+    // Record attack in history for AI retribution/honor system
+    _state.attackHistory.RecordAttack(
+        attacker->owner,
+        defender->owner,
+        _state.turnNumber,
+        result.attackerWins);
+    _state.attackHistory.PruneOldEntries(_state.turnNumber);
+
     // Store result for display
     _state.lastCombat = result;
     _state.combatPending = true;
