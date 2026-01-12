@@ -40,8 +40,6 @@ add_executable(atlas main.cpp
         src/SpriteBatch.cpp
         src/SpriteBatch.h
         src/math.h
-        src/Camera.h
-        src/Camera.cpp
         src/Transform.h
         src/CameraSystem.cpp
         src/CameraSystem.h

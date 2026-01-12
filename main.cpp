@@ -147,12 +147,12 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     // Configure game
     GameConfig config;
-    config.gridWidth = 50;   // 16:9 ratio (accounting for hex geometry)
-    config.gridHeight = 32;
+    config.gridWidth = 100;
+    config.gridHeight = 56;
     config.playerCount = 8;
     config.humanPlayerIndex = 0;
-    config.targetTerritoryCount = 45;
-    config.startingDicePerPlayer = 12;
+    config.targetTerritoryCount = 120;
+    config.startingDicePerPlayer = 30;
     config.hexSize = 24.0f;
     config.seed = MilSinceEpoch(); // Random seed
     config.fillHoles = false;
@@ -168,7 +168,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     const HexGrid &grid = gameController->GetGrid();
     const GameState &initialState = gameController->GetState();
     hexMapData = new HexMapData();
-    hexMapData->Initialize(grid, initialState);
+    hexMapData->Initialize(grid);
     hexMapData->UpdateFromTerritories(grid, initialState);
 
     hexMapRenderer = new HexMapRenderer(&resourceManager);
@@ -195,8 +195,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     // Set world bounds from grid and fit camera to map
     Vector2 gridMin = grid.GetWorldMin();
     Vector2 gridMax = grid.GetWorldMax();
-    cameraController.SetWorldBounds(gridMin, gridMax);
-    cameraController.FitToBounds();
+    Vector2 halfGridSize = {0, 0}; // (gridMax - gridMin) * 1.5;
+    //cameraController.SetWorldBounds(gridMin + halfGridSize, gridMax - halfGridSize);
+    //cameraController.FitToBounds();
 
     // Initialize input handler
     inputHandler = new InputHandler(gameController, &camera, &uiState);
@@ -355,7 +356,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 gameController->SetAIController(aiController);
                 const HexGrid &restartGrid = gameController->GetGrid();
                 const GameState &restartState = gameController->GetState();
-                hexMapData->Initialize(restartGrid, restartState);
+                hexMapData->Initialize(restartGrid);
                 hexMapData->UpdateFromTerritories(restartGrid, restartState);
                 diceRenderer->UpdateFromGameState(restartState, restartGrid);
                 inputHandler->UpdateUIState();

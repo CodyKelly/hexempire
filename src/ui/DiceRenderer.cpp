@@ -49,7 +49,7 @@ void DiceRenderer::AddDiceStack(
     const PlayerData &owner) {
     // Stack dice vertically with slight offset
     // Start from bottom, go up
-    float startY = worldPos.y; // + (diceCount - 1) * DICE_STACK_OFFSET * 0.5f;
+    float startY = worldPos.y + (diceCount - 1) * DICE_STACK_OFFSET * 0.5f;
     int numStacks = diceCount / MAX_DICE_PER_STACK + 1;
     float startX = worldPos.x - numStacks / 2 * DICE_STACK_MARGIN - (numStacks % 2 == 0 ? DICE_STACK_MARGIN / 2 : 0.0f);
 
