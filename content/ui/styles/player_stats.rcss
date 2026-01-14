@@ -1,0 +1,89 @@
+/* Player Stats Panel Styles */
+
+body {
+    font-family: LatoLatin;
+    font-size: 14dp;
+    color: #ffffff;
+}
+
+#stats-panel {
+    position: fixed;
+    top: 20dp;
+    right: 20dp;
+    width: 200dp;
+    background-color: rgba(20, 20, 30, 0.85);
+    border-width: 2dp;
+    border-color: rgba(100, 100, 120, 0.6);
+    border-radius: 8dp;
+    padding: 12dp;
+}
+
+#stats-panel h2 {
+    font-size: 16dp;
+    font-weight: bold;
+    margin-bottom: 10dp;
+    text-align: center;
+    color: #e0e0e0;
+    border-bottom-width: 1dp;
+    border-bottom-color: rgba(100, 100, 120, 0.4);
+    padding-bottom: 8dp;
+    margin-top: 0;
+}
+
+#player-list {
+    display: block;
+}
+
+.player-entry {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 6dp 4dp;
+    margin: 2dp 0;
+    border-radius: 4dp;
+    background-color: rgba(40, 40, 50, 0.5);
+}
+
+.player-entry.current-player {
+    background-color: rgba(60, 60, 80, 0.7);
+    border-width: 1dp;
+    border-color: rgba(150, 150, 180, 0.5);
+}
+
+.player-entry.eliminated {
+    opacity: 0.4;
+}
+
+.player-color {
+    width: 16dp;
+    height: 16dp;
+    min-width: 16dp;
+    min-height: 16dp;
+    border-radius: 3dp;
+    margin-right: 8dp;
+    border-width: 1dp;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.player-name {
+    flex-grow: 1;
+    font-weight: bold;
+    font-size: 12dp;
+}
+
+.player-stats {
+    display: block;
+    text-align: right;
+    margin-left: 8dp;
+}
+
+.stat-largest {
+    font-weight: bold;
+    font-size: 16dp;
+    color: #ffdd44;
+}
+
+.stat-territories {
+    color: #aaaaaa;
+    font-size: 10dp;
+}

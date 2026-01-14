@@ -1,0 +1,14 @@
+<rml>
+<head>
+    <title>Player Stats</title>
+    <link type="text/rcss" href="styles/player_stats.rcss"/>
+</head>
+<body>
+    <div id="stats-panel">
+        <h2>Empire Strength</h2>
+        <div id="player-list">
+            <!-- Player entries will be populated dynamically -->
+        </div>
+    </div>
+</body>
+</rml>
