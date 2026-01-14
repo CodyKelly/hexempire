@@ -43,6 +43,17 @@ void ResourceManager::Init(const char* windowTitle, int width, int height, SDL_W
         throw std::runtime_error("SDL_ClaimWindowForGPUDevice failed");
     }
 
+    // Acquire and submit a swapchain texture to initialize the swapchain format
+    // This is needed because SDL_GetGPUSwapchainTextureFormat may return INVALID
+    // on some backends (e.g., Vulkan on Linux) before the first acquire
+    SDL_GPUCommandBuffer* initCmdBuf = SDL_AcquireGPUCommandBuffer(gpuDevice);
+    if (initCmdBuf)
+    {
+        SDL_GPUTexture* swapchainTex = nullptr;
+        SDL_WaitAndAcquireGPUSwapchainTexture(initCmdBuf, window, &swapchainTex, nullptr, nullptr);
+        SDL_SubmitGPUCommandBuffer(initCmdBuf);
+    }
+
     pipelines = std::unordered_map<string, SDL_GPUGraphicsPipeline*>();
     buffers = std::unordered_map<string, SDL_GPUBuffer*>();
     transferBuffers = std::unordered_map<string, SDL_GPUTransferBuffer*>();
@@ -129,26 +140,35 @@ SDL_GPUGraphicsPipeline* ResourceManager::CreateGraphicsPipeline(
     SDL_GPUShader* vertShader = LoadShader(vertexShaderInfo);
     SDL_GPUShader* fragShader = LoadShader(fragmentShaderInfo);
 
+    SDL_GPUTextureFormat swapchainFormat = SDL_GetGPUSwapchainTextureFormat(gpuDevice, window);
+    SDL_Log("Swapchain texture format: %d", swapchainFormat);
+
+    // Fallback if swapchain format is invalid (can happen on some backends)
+    if (swapchainFormat == SDL_GPU_TEXTUREFORMAT_INVALID)
+    {
+        swapchainFormat = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
+        SDL_Log("Using fallback format: %d", swapchainFormat);
+    }
+
+    SDL_GPUColorTargetDescription colorTargetDesc = {
+        .format = swapchainFormat,
+        .blend_state = {
+            .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+            .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+            .color_blend_op = SDL_GPU_BLENDOP_ADD,
+            .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+            .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+            .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
+            .enable_blend = true,
+        },
+    };
+
     SDL_GPUGraphicsPipelineCreateInfo pipelineCreateInfo = {
         .vertex_shader = vertShader,
         .fragment_shader = fragShader,
         .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
         .target_info = {
-            .color_target_descriptions = (SDL_GPUColorTargetDescription[])
-            {
-                {
-                    .format = SDL_GetGPUSwapchainTextureFormat(gpuDevice, window),
-                    .blend_state = {
-                        .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-                        .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                        .color_blend_op = SDL_GPU_BLENDOP_ADD,
-                        .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-                        .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                        .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
-                        .enable_blend = true,
-                    },
-                }
-            },
+            .color_target_descriptions = &colorTargetDesc,
             .num_color_targets = 1,
         }
     };

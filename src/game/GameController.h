@@ -58,6 +58,9 @@ public:
     // Get valid attack targets from selected territory
     [[nodiscard]] std::vector<TerritoryId> GetValidTargets(TerritoryId from) const;
 
+    // Get size of largest contiguous territory region for a player (for UI)
+    [[nodiscard]] int FindLargestContiguousRegion(PlayerId player);
+
 private:
     GameState _state;
     HexGrid _grid;
@@ -78,7 +81,6 @@ private:
     // Reinforcement
     int CalculateReinforcements(PlayerId player);
     void DistributeReinforcements(PlayerId player, int diceCount);
-    int FindLargestContiguousRegion(PlayerId player);
 
     // Victory
     void CheckVictory();

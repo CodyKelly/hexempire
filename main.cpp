@@ -23,6 +23,7 @@
 #include "src/game/ReplaySystem.h"
 
 #include "src/ui/DiceRenderer.h"
+#include "src/ui/UIManager.h"
 
 #include <cstring>
 #include <iomanip>
@@ -43,6 +44,7 @@ ReplaySystem *replaySystem = nullptr;
 HexMapData *hexMapData = nullptr;
 HexMapRenderer *hexMapRenderer = nullptr;
 DiceRenderer *diceRenderer = nullptr;
+UIManager *uiManager = nullptr;
 
 // UI state
 UIState uiState;
@@ -273,6 +275,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     // Initialize input handler
     inputHandler = new InputHandler(gameController, &camera, &uiState);
 
+    // Initialize UI Manager (RmlUi)
+    uiManager = new UIManager();
+    if (!uiManager->Initialize(&resourceManager, windowWidth, windowHeight)) {
+        LogError("Failed to initialize UIManager");
+        return SDL_APP_FAILURE;
+    }
+
     // Set up UI state
     uiState.endTurnBtnX = 20;
     uiState.endTurnBtnY = 20;
@@ -325,6 +334,11 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     hexMapData->UpdateFromGameState(grid, state, uiState);
     diceRenderer->UpdateFromGameState(state, grid);
 
+    // Update UI Manager with player stats
+    uiManager->UpdatePlayerStats(state, [](int playerId) {
+        return gameController->FindLargestContiguousRegion(static_cast<PlayerId>(playerId));
+    });
+
     // Acquire command buffer
     SDL_GPUCommandBuffer *commandBuffer = SDL_AcquireGPUCommandBuffer(resourceManager.GetGPUDevice());
     if (!commandBuffer) return SDL_APP_FAILURE;
@@ -371,6 +385,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         diceRenderer->Draw(renderPass);
 
         SDL_EndGPURenderPass(renderPass);
+
+        // Render RmlUi (creates its own render pass with LOAD_OP_LOAD)
+        uiManager->BeginFrame(commandBuffer, swapchainTexture,
+                              static_cast<uint32_t>(windowWidth),
+                              static_cast<uint32_t>(windowHeight));
+        uiManager->Update();
+        uiManager->Render();
+        uiManager->EndFrame();
     }
 
     SDL_SubmitGPUCommandBuffer(commandBuffer);
@@ -380,6 +402,11 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 }
 
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
+    // Let RmlUi process events first
+    if (uiManager && uiManager->ProcessEvent(*event)) {
+        return SDL_APP_CONTINUE; // Event consumed by UI
+    }
+
     switch (event->type) {
         case SDL_EVENT_QUIT:
             return SDL_APP_SUCCESS;
@@ -423,6 +450,13 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         }
         break;
 
+        case SDL_EVENT_WINDOW_RESIZED:
+            // Handle window resize for UI
+            if (uiManager) {
+                uiManager->OnResize(event->window.data1, event->window.data2);
+            }
+            break;
+
         case SDL_EVENT_KEY_DOWN:
             inputHandler->HandleEvent(*event);
 
@@ -455,6 +489,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
         replaySystem->StopRecording();
     }
     delete replaySystem;
+    delete uiManager;
     delete inputHandler;
     delete aiController;
     delete gameController;

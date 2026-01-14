@@ -16,8 +16,8 @@
 #include <sstream>
 
 // Static render and system interfaces (RmlUi requires these to outlive the context)
-static RenderInterface_SDL_GPU* s_renderInterface = nullptr;
-static SystemInterface_SDL* s_systemInterface = nullptr;
+static RenderInterface_SDL_GPU *s_renderInterface = nullptr;
+static SystemInterface_SDL *s_systemInterface = nullptr;
 
 UIManager::UIManager() = default;
 
@@ -25,7 +25,7 @@ UIManager::~UIManager() {
     Shutdown();
 }
 
-bool UIManager::Initialize(ResourceManager* rm, int width, int height) {
+bool UIManager::Initialize(ResourceManager *rm, int width, int height) {
     ZoneScoped;
     _resourceManager = rm;
 
@@ -96,15 +96,15 @@ void UIManager::Shutdown() {
     s_systemInterface = nullptr;
 }
 
-void UIManager::UpdatePlayerStats(const GameState& state,
-                                  const std::function<int(int)>& getLargestRegion) {
+void UIManager::UpdatePlayerStats(const GameState &state,
+                                  const std::function<int(int)> &getLargestRegion) {
     ZoneScoped;
 
     bool needsRefresh = false;
 
     for (int i = 0; i < state.config.playerCount; i++) {
-        const PlayerData& player = state.players[i];
-        PlayerUIData& stats = _playerData[i];
+        const PlayerData &player = state.players[i];
+        PlayerUIData &stats = _playerData[i];
 
         int newLargestRegion = getLargestRegion(i);
         int newTotalTerritories = state.CountTerritoriesOwned(i);
@@ -140,13 +140,13 @@ void UIManager::UpdatePlayerStats(const GameState& state,
     }
 }
 
-bool UIManager::ProcessEvent(SDL_Event& event) {
+bool UIManager::ProcessEvent(SDL_Event &event) {
     if (!_context) return false;
     return !RmlSDL::InputEventHandler(_context, _resourceManager->GetWindow(), event);
 }
 
-void UIManager::BeginFrame(SDL_GPUCommandBuffer* commandBuffer,
-                           SDL_GPUTexture* swapchainTexture,
+void UIManager::BeginFrame(SDL_GPUCommandBuffer *commandBuffer,
+                           SDL_GPUTexture *swapchainTexture,
                            uint32_t width, uint32_t height) {
     if (s_renderInterface) {
         s_renderInterface->BeginFrame(commandBuffer, swapchainTexture, width, height);
@@ -188,7 +188,7 @@ void UIManager::RefreshStatsUI() {
     ZoneScoped;
     if (!_statsDoc) return;
 
-    Rml::Element* playerList = _statsDoc->GetElementById("player-list");
+    Rml::Element *playerList = _statsDoc->GetElementById("player-list");
     if (!playerList) return;
 
     // Clear existing entries
@@ -197,12 +197,12 @@ void UIManager::RefreshStatsUI() {
     }
 
     // Create sorted list by largest region (descending)
-    std::vector<const PlayerUIData*> sortedStats;
+    std::vector<const PlayerUIData *> sortedStats;
     for (int i = 0; i < _playerCount; i++) {
         sortedStats.push_back(&_playerData[i]);
     }
     std::sort(sortedStats.begin(), sortedStats.end(),
-              [](const PlayerUIData* a, const PlayerUIData* b) {
+              [](const PlayerUIData *a, const PlayerUIData *b) {
                   // Sort by largest region, then by total territories
                   if (a->largestRegion != b->largestRegion) {
                       return a->largestRegion > b->largestRegion;
@@ -211,7 +211,7 @@ void UIManager::RefreshStatsUI() {
               });
 
     // Create player entries
-    for (const PlayerUIData* stats : sortedStats) {
+    for (const PlayerUIData *stats: sortedStats) {
         Rml::ElementPtr entry = _statsDoc->CreateElement("div");
         entry->SetClassNames("player-entry");
 
@@ -228,9 +228,9 @@ void UIManager::RefreshStatsUI() {
 
         std::ostringstream colorStyle;
         colorStyle << "background-color: rgb("
-                   << static_cast<int>(stats->colorR * 255) << ", "
-                   << static_cast<int>(stats->colorG * 255) << ", "
-                   << static_cast<int>(stats->colorB * 255) << ");";
+                << static_cast<int>(stats->colorR * 255) << ", "
+                << static_cast<int>(stats->colorG * 255) << ", "
+                << static_cast<int>(stats->colorB * 255) << ");";
         colorBox->SetAttribute("style", colorStyle.str());
         entry->AppendChild(std::move(colorBox));
 

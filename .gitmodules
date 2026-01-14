@@ -7,3 +7,9 @@
 [submodule "vendored/tracy"]
 	path = vendored/tracy
 	url = https://github.com/wolfpld/tracy.git
+[submodule "vendored/RmlUi"]
+	path = vendored/RmlUi
+	url = https://github.com/mikke89/RmlUi.git
+[submodule "vendored/SDL_image"]
+	path = vendored/SDL_image
+	url = https://github.com/libsdl-org/SDL_image.git

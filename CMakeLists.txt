@@ -22,6 +22,23 @@ set(SDLSHADERCROSS_VENDORED ON)
 add_subdirectory(vendored/SDL EXCLUDE_FROM_ALL)
 add_subdirectory(vendored/SDL_shadercross EXCLUDE_FROM_ALL)
 
+# SDL_image (required by RmlUi SDL_GPU renderer)
+# Use stb_image backend to avoid libpng 2.x compatibility issues
+set(SDLIMAGE_SAMPLES OFF CACHE BOOL "Build SDL_image samples" FORCE)
+set(SDLIMAGE_PNG OFF CACHE BOOL "Disable libpng (use stb instead)" FORCE)
+set(SDLIMAGE_PNG_SAVE OFF CACHE BOOL "Disable PNG save" FORCE)
+set(SDLIMAGE_AVIF OFF CACHE BOOL "Disable AVIF" FORCE)
+set(SDLIMAGE_WEBP OFF CACHE BOOL "Disable WebP" FORCE)
+set(SDLIMAGE_JXL OFF CACHE BOOL "Disable JXL" FORCE)
+set(SDLIMAGE_TIF OFF CACHE BOOL "Disable TIFF" FORCE)
+add_subdirectory(vendored/SDL_image EXCLUDE_FROM_ALL)
+
+# RmlUi Configuration
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
+set(RMLUI_SAMPLES OFF CACHE BOOL "Build RmlUi samples")
+set(RMLUI_LUA_BINDINGS OFF CACHE BOOL "Build Lua bindings")
+add_subdirectory(vendored/RmlUi EXCLUDE_FROM_ALL)
+
 # Tracy Profiler
 option(TRACY_ENABLE "Enable Tracy profiler" ON)
 if (TRACY_ENABLE)
@@ -75,16 +92,31 @@ add_executable(atlas main.cpp
         # UI
         src/ui/DiceRenderer.cpp
         src/ui/DiceRenderer.h
+        src/ui/UIManager.cpp
+        src/ui/UIManager.h
+
+        # RmlUi SDL3 GPU Backend
+        vendored/RmlUi/Backends/RmlUi_Platform_SDL.cpp
+        vendored/RmlUi/Backends/RmlUi_Renderer_SDL_GPU.cpp
 )
 
-# Tracy include directory
-target_include_directories(atlas PRIVATE vendored/tracy/public)
+# Include directories
+target_include_directories(atlas PRIVATE
+        vendored/tracy/public
+        vendored/RmlUi/Include
+        vendored/RmlUi/Backends
+)
 
-# Link to the actual SDL3 library.
+# RmlUi requires RMLUI_SDL_VERSION_MAJOR to be set for SDL3 support
+target_compile_definitions(atlas PRIVATE RMLUI_SDL_VERSION_MAJOR=3)
+
+# Link libraries
 target_link_libraries(atlas
         PRIVATE
         SDL3::SDL3
         SDL3_shadercross::SDL3_shadercross
+        SDL3_image::SDL3_image
+        rmlui_core
 )
 
 add_custom_command(
