@@ -4,6 +4,7 @@
 
 #include "GameController.h"
 #include "AIController.h"
+#include "ReplaySystem.h"
 #include <queue>
 #include <unordered_set>
 #include <algorithm>
@@ -133,13 +134,46 @@ bool GameController::Attack(TerritoryId target) {
     const TerritoryData *defender = _state.GetTerritory(target);
     if (!attacker || !defender) return false;
 
+    // Create combat action with current state snapshot
+    CombatAction action;
+    action.attackerId = from;
+    action.defenderId = target;
+    action.attackerPlayer = attacker->owner;
+    action.attackerDice = attacker->diceCount;
+    action.defenderDice = defender->diceCount;
+
+    // Queue the action for processing
+    _combatQueue.QueueAction(action);
+
+    // Record action to replay file if recording
+    if (_replaySystem) {
+        _replaySystem->RecordAction(action);
+    }
+
+    // Reset selection immediately (attack is queued)
+    _state.selectedTerritory = TERRITORY_NONE;
+    _state.validTargets.clear();
+
+    if (_state.players[_state.currentPlayer].isHuman) {
+        _state.phase = TurnPhase::SelectAttacker;
+    }
+
+    return true;
+}
+
+void GameController::ExecuteCombat(const CombatAction& action) {
+    ZoneScoped;
+    const TerritoryData *attacker = _state.GetTerritory(action.attackerId);
+    const TerritoryData *defender = _state.GetTerritory(action.defenderId);
+    if (!attacker || !defender) return;
+
     // Resolve combat
     CombatResult result = _combat.ResolveCombat(*attacker, *defender);
     _combat.ApplyCombatResult(_state, result);
 
     // Record attack in history for AI retribution/honor system
     _state.attackHistory.RecordAttack(
-        attacker->owner,
+        action.attackerPlayer,
         defender->owner,
         _state.turnNumber,
         result.attackerWins);
@@ -153,18 +187,14 @@ bool GameController::Attack(TerritoryId target) {
     // Check for elimination and victory
     CheckElimination();
     CheckVictory();
+}
 
-    // Reset selection
-    _state.selectedTerritory = TERRITORY_NONE;
-    _state.validTargets.clear();
+void GameController::ProcessCombatQueue() {
+    _combatQueue.Update(0.0f); // Timer updated in main Update
 
-    if (!_state.IsGameOver()) {
-        if (_state.players[_state.currentPlayer].isHuman) {
-            _state.phase = TurnPhase::SelectAttacker;
-        }
+    if (auto action = _combatQueue.PopNextAction()) {
+        ExecuteCombat(*action);
     }
-
-    return true;
 }
 
 void GameController::CancelSelection() {
@@ -236,6 +266,17 @@ void GameController::Update(float deltaTime) {
         if (_state.combatAnimTimer <= 0) {
             _state.combatPending = false;
         }
+    }
+
+    // Process combat queue
+    _combatQueue.Update(deltaTime);
+    if (auto action = _combatQueue.PopNextAction()) {
+        ExecuteCombat(*action);
+    }
+
+    // Don't process AI turns or allow turn end while queue is processing
+    if (_combatQueue.HasPendingActions()) {
+        return;
     }
 
     // Handle AI turn

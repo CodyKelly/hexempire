@@ -2,7 +2,9 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vendored/RmlUi" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/vendored/SDL" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vendored/SDL_image" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/vendored/SDL_shadercross" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/vendored/SDL_shadercross/external/DirectXShaderCompiler" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/vendored/SDL_shadercross/external/DirectXShaderCompiler/external/DirectX-Headers" vcs="Git" />

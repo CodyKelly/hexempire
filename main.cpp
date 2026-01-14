@@ -20,8 +20,13 @@
 #include "src/game/GameController.h"
 #include "src/game/AIController.h"
 #include "src/game/InputHandler.h"
+#include "src/game/ReplaySystem.h"
 
 #include "src/ui/DiceRenderer.h"
+
+#include <cstring>
+#include <iomanip>
+#include <sstream>
 
 // Global systems
 ResourceManager resourceManager;
@@ -32,6 +37,7 @@ CameraController cameraController;
 GameController *gameController = nullptr;
 AIController *aiController = nullptr;
 InputHandler *inputHandler = nullptr;
+ReplaySystem *replaySystem = nullptr;
 
 // Rendering
 HexMapData *hexMapData = nullptr;
@@ -56,6 +62,42 @@ struct VertexUniforms {
 };
 
 AppState appState;
+
+// Command line arguments
+struct CommandLineArgs {
+    std::string replayPath;
+    float moveDelay = 0.3f;  // Default delay for playback
+    bool playbackMode = false;
+};
+
+CommandLineArgs cmdArgs;
+
+CommandLineArgs ParseArgs(int argc, char **argv) {
+    CommandLineArgs args;
+
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-r") == 0 && i + 1 < argc) {
+            args.replayPath = argv[++i];
+            args.playbackMode = true;
+        } else if (strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
+            args.moveDelay = std::stof(argv[++i]);
+        }
+    }
+
+    return args;
+}
+
+std::string GenerateReplayFilename() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm = *std::localtime(&time);
+
+    std::ostringstream oss;
+    oss << "replays/game_"
+        << std::put_time(&tm, "%Y%m%d_%H%M%S")
+        << ".replay";
+    return oss.str();
+}
 
 uint64_t MilSinceEpoch() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).
@@ -111,6 +153,10 @@ void UpdateTime() {
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     ZoneScoped;
+
+    // Parse command line arguments
+    cmdArgs = ParseArgs(argc, argv);
+
     resourceManager.Init("Hex Empire", 1200, 900, SDL_WINDOW_RESIZABLE);
 
     // Create graphics pipelines
@@ -145,18 +191,43 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     // Initialize game controller
     gameController = new GameController();
 
+    // Initialize replay system
+    replaySystem = new ReplaySystem();
+    gameController->SetReplaySystem(replaySystem);
+
     // Configure game
     GameConfig config;
-    config.gridWidth = 100;
-    config.gridHeight = 56;
-    config.playerCount = 8;
-    config.humanPlayerIndex = 0;
-    config.targetTerritoryCount = 120;
-    config.startingDicePerPlayer = 30;
-    config.hexSize = 24.0f;
-    config.seed = MilSinceEpoch(); // Random seed
-    config.fillHoles = false;
-    config.keepLargestIslandOnly = true;
+
+    if (cmdArgs.playbackMode) {
+        // Playback mode: load replay file
+        if (!replaySystem->LoadReplay(cmdArgs.replayPath)) {
+            LogError("Failed to load replay file");
+            return SDL_APP_FAILURE;
+        }
+        config = replaySystem->GetConfig();
+
+        // Set move delay for playback
+        gameController->GetCombatQueue().SetProcessingDelay(cmdArgs.moveDelay);
+
+        SDL_Log("Playback mode: %zu actions, delay %.2fs",
+                replaySystem->GetActionCount(), cmdArgs.moveDelay);
+    } else {
+        // Normal mode: configure new game and start recording
+        config.gridWidth = 100;
+        config.gridHeight = 56;
+        config.playerCount = 8;
+        config.humanPlayerIndex = 0;
+        config.targetTerritoryCount = 120;
+        config.startingDicePerPlayer = 30;
+        config.hexSize = 24.0f;
+        config.seed = MilSinceEpoch(); // Random seed
+        config.fillHoles = false;
+        config.keepLargestIslandOnly = true;
+
+        // Start recording
+        std::string replayPath = GenerateReplayFilename();
+        replaySystem->StartRecording(replayPath, config);
+    }
 
     gameController->InitializeGame(config);
 
@@ -230,6 +301,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     // Update game logic
     gameController->Update((float) appState.deltaTime);
+
+    // Playback mode: feed next action from replay when queue is empty
+    if (cmdArgs.playbackMode && replaySystem->HasNextAction()) {
+        if (!gameController->GetCombatQueue().HasPendingActions()) {
+            CombatAction action = replaySystem->GetNextAction();
+            gameController->GetCombatQueue().QueueAction(action);
+        }
+    }
 
     // Update rendering data
     const GameState &state = gameController->GetState();
@@ -372,6 +451,10 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 }
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
+    if (replaySystem) {
+        replaySystem->StopRecording();
+    }
+    delete replaySystem;
     delete inputHandler;
     delete aiController;
     delete gameController;

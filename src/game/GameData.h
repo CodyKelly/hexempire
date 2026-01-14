@@ -81,6 +81,15 @@ struct CombatResult {
     bool attackerWins = false;
 };
 
+// Pending combat action - represents an intended attack before resolution
+struct CombatAction {
+    TerritoryId attackerId = TERRITORY_NONE;
+    TerritoryId defenderId = TERRITORY_NONE;
+    PlayerId attackerPlayer = PLAYER_NONE;
+    uint8_t attackerDice = 0;  // Snapshot for validation/replay
+    uint8_t defenderDice = 0;
+};
+
 // Attack history entry for tracking inter-player aggression
 struct AttackHistoryEntry {
     PlayerId attacker = PLAYER_NONE;

@@ -7,10 +7,12 @@
 
 #include "GameData.h"
 #include "CombatSystem.h"
+#include "CombatQueue.h"
 #include "../hex/HexGrid.h"
 #include "../hex/TerritoryGenerator.h"
 
 class AIController;  // Forward declaration
+class ReplaySystem;  // Forward declaration
 
 class GameController
 {
@@ -23,6 +25,9 @@ public:
     // Set AI controller reference
     void SetAIController(AIController* ai) { _aiController = ai; }
 
+    // Set replay system reference
+    void SetReplaySystem(ReplaySystem* replay) { _replaySystem = replay; }
+
     // Get game state
     [[nodiscard]] GameState& GetState() { return _state; }
     [[nodiscard]] const GameState& GetState() const { return _state; }
@@ -33,6 +38,10 @@ public:
 
     // Get combat system
     [[nodiscard]] CombatSystem& GetCombatSystem() { return _combat; }
+
+    // Get combat queue
+    [[nodiscard]] CombatQueue& GetCombatQueue() { return _combatQueue; }
+    [[nodiscard]] const CombatQueue& GetCombatQueue() const { return _combatQueue; }
 
     // Turn actions
     bool SelectTerritory(TerritoryId territory);
@@ -53,8 +62,10 @@ private:
     GameState _state;
     HexGrid _grid;
     CombatSystem _combat;
+    CombatQueue _combatQueue;
     TerritoryGenerator _generator;
     AIController* _aiController = nullptr;
+    ReplaySystem* _replaySystem = nullptr;
 
     // AI timing
     float _aiThinkTimer = 0.0f;
@@ -75,6 +86,10 @@ private:
 
     // Update valid targets based on selection
     void UpdateValidTargets();
+
+    // Combat queue processing
+    void ProcessCombatQueue();
+    void ExecuteCombat(const CombatAction& action);
 };
 
 #endif // ATLAS_GAMECONTROLLER_H

@@ -63,6 +63,10 @@ add_executable(atlas main.cpp
         src/game/GameController.h
         src/game/CombatSystem.cpp
         src/game/CombatSystem.h
+        src/game/CombatQueue.cpp
+        src/game/CombatQueue.h
+        src/game/ReplaySystem.cpp
+        src/game/ReplaySystem.h
         src/game/AIController.cpp
         src/game/AIController.h
         src/game/InputHandler.cpp
